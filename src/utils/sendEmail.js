@@ -5,10 +5,17 @@ export const sendEmail = async ({ to, subject, html }) => {
     service: "gmail",
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // App Password
+      pass: process.env.EMAIL_PASS, // Gmail App Password
     },
+
+    // 🚨 THIS IS THE KEY FIX
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+
     tls: {
-      family: 4 // 👈 FORCE IPv4 (VERY IMPORTANT)
+      rejectUnauthorized: true,
+      family: 4 // ✅ FORCE IPv4 (THIS FIXES RENDER)
     }
   });
 
@@ -16,6 +23,6 @@ export const sendEmail = async ({ to, subject, html }) => {
     from: `CheepCart <${process.env.EMAIL_USER}>`,
     to,
     subject,
-    html,
+    html
   });
 };
