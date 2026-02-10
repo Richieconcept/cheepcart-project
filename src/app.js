@@ -14,6 +14,12 @@ import { notFound, errorHandler } from "../src/middlewares/errorMiddleware.js";
 
 const app = express();
 
+// VERY IMPORTANT for Render / production
+app.set("trust proxy", 1);
+
+
+
+
 // Security & middleware
 app.use(cors());
 app.use(helmet());
