@@ -1,23 +1,28 @@
 import nodemailer from "nodemailer";
-import dns from "dns";
-
-dns.setDefaultResultOrder("ipv4first"); // 🔥 VERY IMPORTANT
 
 export const sendEmail = async ({ to, subject, html }) => {
   const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
+    service: "gmail",
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, // App Password
+      pass: process.env.EMAIL_PASS, // Gmail App Password
     },
+
+    // 🚨 THIS IS THE KEY FIX
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+
+    tls: {
+      rejectUnauthorized: true,
+      family: 4 // ✅ FORCE IPv4 (THIS FIXES RENDER)
+    }
   });
 
   await transporter.sendMail({
     from: `CheepCart <${process.env.EMAIL_USER}>`,
     to,
     subject,
-    html,
+    html
   });
 };
