@@ -30,9 +30,10 @@ export const registerUser = async (req, res, next) => {
       throw new Error("User already exists with this email");
     }
 
-    // 🔐 Generate OTP
+    // Generate OTP
     const { otp, hashedOtp } = generateOTP();
 
+    // Create user
     const user = await User.create({
       name,
       email,
@@ -42,7 +43,7 @@ export const registerUser = async (req, res, next) => {
       emailVerificationExpires: Date.now() + 10 * 60 * 1000
     });
 
-    // 📧 Send verification email
+    // Send verification email
     await sendEmail({
       to: user.email,
       subject: "Verify your CheepCart account",
@@ -54,12 +55,12 @@ export const registerUser = async (req, res, next) => {
       message: "Verification code sent to email",
       userId: user._id
     });
+
   } catch (error) {
-    next(error); // 👈 THIS IS CRITICAL
+    console.error("Registration error:", error.message);
+    next(error);
   }
 };
-
-
 
 
 
