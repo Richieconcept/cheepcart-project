@@ -4,9 +4,10 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import authRoutes from "../src/routes/authRoutes.js";
 import { notFound, errorHandler } from "../src/middlewares/errorMiddleware.js";
-
-
-
+import userRoutes from "../src/routes/userRoutes.js";
+import uploadRoutes from "../src/routes/uploadRoutes.js";
+import cloudinary from "./config/cloudinary.js";
+import categoryRoutes from "../src/routes/categoryRoutes.js";
 
 
 
@@ -19,9 +20,7 @@ app.set("trust proxy", 1);
 
 
 
-
 // Security & middleware
-app.use(cors());
 app.use(helmet());
 app.use(express.json());
 
@@ -38,8 +37,17 @@ app.get("/", (req, res) => {
 });
 
 
+
 // =================routing===================
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/categories", categoryRoutes);
+
+
+
+
+
 
 // ================Error handling (ALWAYS LAST)=====================
 app.use(notFound);

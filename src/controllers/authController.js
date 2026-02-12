@@ -8,26 +8,32 @@ import { generateToken } from "../utils/generateToken.js";
 
 // =====================Register user======================================
 
-
 export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password, phone } = req.body;
 
     // Validation
     if (!name || !email || !password) {
-      res.status(400);
-      throw new Error("Name, email, and password are required");
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, and password are required"
+      });
     }
 
     if (password.length < 6) {
-      res.status(400);
-      throw new Error("Password must be at least 6 characters");
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters"
+      });
     }
 
     const userExists = await User.findOne({ email });
+
     if (userExists) {
-      res.status(409);
-      throw new Error("User already exists with this email");
+      return res.status(409).json({
+        success: false,
+        message: "User already exists with this email"
+      });
     }
 
     // Generate OTP
@@ -43,16 +49,22 @@ export const registerUser = async (req, res, next) => {
       emailVerificationExpires: Date.now() + 10 * 60 * 1000
     });
 
-    // Send verification email
-    await sendEmail({
-      to: user.email,
-      subject: "Verify your CheepCart account",
-      html: verificationEmailTemplate(user.name, otp)
-    });
+    // 🔥 SEND EMAIL SAFELY (Do NOT crash registration)
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Verify your CheepCart account",
+        html: verificationEmailTemplate(user.name, otp)
+      });
+    } catch (emailError) {
+      console.error("Email sending failed:", emailError.message);
+      // Do NOT throw error
+    }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Verification code sent to email",
+      message:
+        "Registration successful. Please verify your email. If you did not receive OTP, you can resend it.",
       userId: user._id
     });
 
