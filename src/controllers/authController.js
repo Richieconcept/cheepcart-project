@@ -4,6 +4,7 @@ import { sendEmail } from "../utils/sendEmail.js";
 import { verificationEmailTemplate } from "../utils/emailTemplates.js";
 import crypto from "crypto";
 import { generateToken } from "../utils/generateToken.js";
+import jwt from "jsonwebtoken";
 
 
 // =====================Register user======================================
@@ -334,7 +335,7 @@ export const verifyResetOtp = async (req, res, next) => {
 
     if (!email || !code) {
       res.status(400);
-      throw new Error("Email and reset code are required");
+      throw new Error("Reset code is required");
     }
 
     const hashedCode = crypto
@@ -353,10 +354,29 @@ export const verifyResetOtp = async (req, res, next) => {
       throw new Error("Invalid or expired reset code");
     }
 
+    // 🔐 Generate temporary reset token (10 mins)
+    const resetToken = jwt.sign(
+      {
+        id: user._id,
+        purpose: "password-reset"
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "10m" }
+    );
+
+    // Clear OTP fields immediately
+    user.passwordResetCode = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordResetLastSentAt = undefined;
+
+    await user.save();
+
     res.status(200).json({
       success: true,
-      message: "Reset code verified. You may now set a new password."
+      message: "Reset code verified",
+      resetToken
     });
+
   } catch (error) {
     next(error);
   }
@@ -367,11 +387,11 @@ export const verifyResetOtp = async (req, res, next) => {
 
 export const resetPassword = async (req, res, next) => {
   try {
-    const { email, code, newPassword } = req.body;
+    const { newPassword } = req.body;
 
-    if (!email || !code || !newPassword) {
+    if (!newPassword) {
       res.status(400);
-      throw new Error("Email, reset code, and new password are required");
+      throw new Error("New password is required");
     }
 
     if (newPassword.length < 6) {
@@ -379,39 +399,54 @@ export const resetPassword = async (req, res, next) => {
       throw new Error("Password must be at least 6 characters long");
     }
 
-    const hashedCode = crypto
-      .createHash("sha256")
-      .update(code)
-      .digest("hex");
+    // Extract reset token from header
+    let token;
 
-    const user = await User.findOne({
-      email,
-      passwordResetCode: hashedCode,
-      passwordResetExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      res.status(400);
-      throw new Error("Invalid or expired reset code");
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
     }
 
-    // 🔐 Set new password
-    user.password = newPassword;
+    if (!token) {
+      res.status(401);
+      throw new Error("Reset token missing");
+    }
 
-    // 🧹 Clear reset fields
-    user.passwordResetCode = undefined;
-    user.passwordResetExpires = undefined;
-    user.passwordResetLastSentAt = undefined;
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      res.status(401);
+      throw new Error("Reset token is invalid or expired");
+    }
+
+    if (decoded.purpose !== "password-reset") {
+      res.status(401);
+      throw new Error("Invalid reset token");
+    }
+
+    const user = await User.findById(decoded.id).select("+password");
+
+    if (!user) {
+      res.status(404);
+      throw new Error("User not found");
+    }
+
+    // Update password
+    user.password = newPassword;
 
     await user.save();
 
     res.status(200).json({
       success: true,
-      message: "Password reset successful. Please login with your new password."
+      message: "Password updated successfully. Please login."
     });
+
   } catch (error) {
     next(error);
   }
 };
-
 
