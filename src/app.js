@@ -20,6 +20,32 @@ app.set("trust proxy", 1);
 
 
 
+
+
+
+// ============cors config===================================================
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://cheepcart-project.onrender.com"
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+app.options("*", cors());
+
+
+
 // Security & middleware
 app.use(helmet());
 app.use(express.json());
@@ -54,20 +80,6 @@ app.use(notFound);
 app.use(errorHandler);
 
 
-
-
-// const allowedOrigins = [
-//   process.env.FRONTEND_URL
-// ];
-
-
-
-// cors ======================================configuration==================================
-// CORS middleware
-app.use(cors({
-  origin: 'http://localhost:5173', // React app's local server
-  methods: 'GET,POST,PUT,DELETE',
-}));
 
 
 
