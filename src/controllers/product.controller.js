@@ -1,10 +1,9 @@
 import Product from "../models/product.model.js";
-import Category from "../models/category.model.js";
+import Category from "../models/category.js";
 
 
-// =================================Create Product)================================
-
-export const createProduct = async (req, res) => {
+// ================================= Create Product =================================
+export const createProduct = async (req, res, next) => {
    try {
 
       const {
@@ -45,16 +44,14 @@ export const createProduct = async (req, res) => {
       });
 
    } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
    }
 };
 
 
 
-
-// =====================Get All Products (Public)=================================
-
-export const getProducts = async (req, res) => {
+// ============================ Get All Products (Public) ============================
+export const getProducts = async (req, res, next) => {
    try {
 
       const page = Number(req.query.page) || 1;
@@ -63,19 +60,51 @@ export const getProducts = async (req, res) => {
 
       const filter = { isActive: true };
 
+      // Category filter
       if (req.query.category) {
          filter.category = req.query.category;
       }
 
-      if (req.query.featured) {
+      // Featured filter
+      if (req.query.featured === "true") {
          filter.isFeatured = true;
+      }
+
+      // Search by name OR description
+      if (req.query.keyword) {
+         filter.$or = [
+            { name: { $regex: req.query.keyword, $options: "i" } },
+            { description: { $regex: req.query.keyword, $options: "i" } }
+         ];
+      }
+
+      // Price range filter
+      if (req.query.min || req.query.max) {
+         filter.price = {};
+         if (req.query.min) filter.price.$gte = Number(req.query.min);
+         if (req.query.max) filter.price.$lte = Number(req.query.max);
+      }
+
+      // Sorting
+      let sortOption = { isFeatured: -1, createdAt: -1 };
+
+      if (req.query.sort === "price_asc") {
+         sortOption = { price: 1 };
+      }
+
+      if (req.query.sort === "price_desc") {
+         sortOption = { price: -1 };
+      }
+
+      if (req.query.sort === "best_selling") {
+         sortOption = { sold: -1 };
       }
 
       const products = await Product.find(filter)
          .populate("category", "name slug")
          .skip(skip)
          .limit(limit)
-         .sort({ createdAt: -1 });
+         .sort(sortOption);
 
       const total = await Product.countDocuments(filter);
 
@@ -87,16 +116,14 @@ export const getProducts = async (req, res) => {
       });
 
    } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
    }
 };
 
 
 
-
-// =====================Get Single Product (By Slug)===========================
-
-export const getSingleProduct = async (req, res) => {
+// ============================ Get Single Product (By Slug) ============================
+export const getSingleProduct = async (req, res, next) => {
    try {
 
       const product = await Product.findOne({
@@ -113,16 +140,14 @@ export const getSingleProduct = async (req, res) => {
       res.status(200).json(product);
 
    } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
    }
 };
 
 
 
-
-// ============================Update Product (Admin)===============================
-
-export const updateProduct = async (req, res) => {
+// ============================ Update Product (Admin) ============================
+export const updateProduct = async (req, res, next) => {
    try {
 
       const product = await Product.findById(req.params.id);
@@ -143,17 +168,14 @@ export const updateProduct = async (req, res) => {
       });
 
    } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
    }
 };
 
 
 
-
-
-// ==============================Delete Product (Admin)=============================
-
-export const deleteProduct = async (req, res) => {
+// ============================ Delete Product (Admin - Soft Delete) ============================
+export const deleteProduct = async (req, res, next) => {
    try {
 
       const product = await Product.findById(req.params.id);
@@ -172,6 +194,6 @@ export const deleteProduct = async (req, res) => {
       });
 
    } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
    }
 };

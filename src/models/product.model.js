@@ -89,20 +89,28 @@ const productSchema = new mongoose.Schema(
 );
 
 
-// 🔥 Auto-generate slug
-productSchema.pre("save", function (next) {
+productSchema.pre("save", async function () {
+
    if (this.isModified("name")) {
-      this.slug = slugify(this.name, { lower: true, strict: true });
+
+      let baseSlug = slugify(this.name, { lower: true, strict: true });
+      let slug = baseSlug;
+      let counter = 1;
+
+      while (await mongoose.models.Product.findOne({ slug })) {
+         slug = `${baseSlug}-${counter}`;
+         counter++;
+      }
+
+      this.slug = slug;
    }
 
-   // Auto-calculate discount
    if (this.comparePrice && this.comparePrice > this.price) {
       this.discountPercentage = Math.round(
          ((this.comparePrice - this.price) / this.comparePrice) * 100
       );
    }
 
-   next();
 });
 
 
