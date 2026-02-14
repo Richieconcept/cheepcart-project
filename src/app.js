@@ -20,19 +20,17 @@ app.set("trust proxy", 1);
 
 
 
-
-
-
-// ============cors config===================================================
+// ============ CORS config =======================================
 
 const allowedOrigins = [
   "http://localhost:5173",
   "https://cheepcart-project.onrender.com"
 ];
 
-app.use(cors({
-  origin: function(origin, callback) {
+const corsOptions = {
+  origin: function (origin, callback) {
     if (!origin) return callback(null, true);
+
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -40,9 +38,11 @@ app.use(cors({
     }
   },
   credentials: true,
-}));
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
-app.options("*", cors());
+app.use(cors(corsOptions));
 
 
 
