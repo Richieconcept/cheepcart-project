@@ -1,7 +1,7 @@
 import User from "../models/user.js";
 import { generateOTP } from "../utils/generateOtp.js";
 import { sendEmail } from "../utils/sendEmail.js";
-import { verificationEmailTemplate } from "../utils/emailTemplates.js";
+import { verificationEmailTemplate, passwordResetEmailTemplate } from "../utils/emailTemplates.js";
 import crypto from "crypto";
 import { generateToken } from "../utils/generateToken.js";
 import jwt from "jsonwebtoken";
@@ -293,26 +293,13 @@ export const forgotPassword = async (req, res, next) => {
     user.passwordResetLastSentAt = new Date();
 
     await user.save();
-
-    // 📧 Send reset email (non-blocking)
+// 📧 Send reset email (non-blocking)
     try {
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your CheepCart password",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;">
-            <h2>Password Reset Request</h2>
-            <p>Hi ${user.name},</p>
-            <p>Use the code below to reset your password:</p>
-            <div style="font-size:28px;font-weight:bold;letter-spacing:4px;padding:15px;background:#f4f4f4;text-align:center;">
-              ${otp}
-            </div>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you did not request this, please ignore this email.</p>
-            <p>— CheepCart Team</p>
-          </div>
-        `
-      });
+     await sendEmail({
+    to: user.email,
+    subject: "Reset your CheepCart password",
+    html: passwordResetEmailTemplate(user.name, otp)
+    });
     } catch (emailError) {
       console.error("Password reset email failed:", emailError.message);
     }
