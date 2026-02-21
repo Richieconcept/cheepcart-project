@@ -14,6 +14,7 @@ const router = express.Router();
 router.get("/profile", protect, getUserProfile);
 router.put("/profile", protect, updateUserProfile);
 
+// 🔥 Wishlist routes
 router.get("/wishlist", protect, getWishlist);
 router.post("/wishlist/:productId", protect, addToWishlist);
 router.delete("/wishlist/:productId", protect, removeFromWishlist);
