@@ -181,3 +181,125 @@ export const activateUser = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
+// ===========================GET WISHLIST===============================================
+
+export const getWishlist = async (req, res, next) => {
+  try {
+
+    const user = await User.findById(req.user._id)
+      .populate({
+        path: "wishlist",
+        match: { isActive: true },
+        select: "name slug price images averageRating totalReviews stock"
+      });
+
+    res.status(200).json({
+      success: true,
+      total: user.wishlist.length,
+      wishlist: user.wishlist
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+// ======================ADD TO WISHLIST (SAFE VERSION)=================================
+
+
+
+import Product from "../models/product.model.js";
+
+export const addToWishlist = async (req, res, next) => {
+  try {
+
+    const productId = req.params.productId;
+
+    const product = await Product.findById(productId);
+
+    if (!product || !product.isActive) {
+      return res.status(404).json({
+        message: "Product not found"
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (user.wishlist.includes(productId)) {
+      return res.status(400).json({
+        message: "Product already in wishlist"
+      });
+    }
+
+    user.wishlist.push(productId);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Product added to wishlist"
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+
+// =============================REMOVE FROM WISHLIST===================================
+
+
+export const removeFromWishlist = async (req, res, next) => {
+  try {
+
+    const productId = req.params.productId;
+
+    const user = await User.findById(req.user._id);
+
+    user.wishlist = user.wishlist.filter(
+      id => id.toString() !== productId
+    );
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Product removed from wishlist"
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+
+
+// ================CLEAR WISHLIST=========================================
+
+export const clearWishlist = async (req, res, next) => {
+  try {
+
+    const user = await User.findById(req.user._id);
+
+    user.wishlist = [];
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Wishlist cleared"
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
