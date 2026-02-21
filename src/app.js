@@ -9,6 +9,9 @@ import uploadRoutes from "../src/routes/uploadRoutes.js";
 import cloudinary from "./config/cloudinary.js";
 import categoryRoutes from "../src/routes/categoryRoutes.js";
 import productRoutes from "./routes/product.routes.js";
+import adminUserRoutes from "./routes/adminUserRoutes.js"
+import reviewRoutes from "./routes/reviewRoutes.js";
+
 
 
 
@@ -72,6 +75,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 
 
