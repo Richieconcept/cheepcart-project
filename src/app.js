@@ -11,6 +11,7 @@ import categoryRoutes from "../src/routes/categoryRoutes.js";
 import productRoutes from "./routes/product.routes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js"
 import reviewRoutes from "./routes/reviewRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
 
 
 
@@ -77,6 +78,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/cart", cartRoutes);
 
 
 
