@@ -52,6 +52,7 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+// Apply CORS to all routes
 app.use(cors(corsOptions));
 
 
