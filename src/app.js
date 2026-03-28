@@ -12,6 +12,10 @@ import productRoutes from "./routes/product.routes.js";
 import adminUserRoutes from "./routes/adminUserRoutes.js"
 import reviewRoutes from "./routes/reviewRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
+import checkoutRoutes from "./routes/checkout.route.js";
+import shippingRoutes from "./routes/shipping.route.js";
+
+
 
 
 
@@ -78,8 +82,13 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/shipping", shippingRoutes);
+
+// cart route
 app.use("/api/cart", cartRoutes);
 
+// Use Checkout Routes
+app.use("/api/checkout", checkoutRoutes);
 
 
 
