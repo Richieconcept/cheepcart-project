@@ -40,10 +40,10 @@ export const uploadImages = async (req, res, next) => {
       req.files.map(file => streamUpload(file.buffer, folder))
     );
 
-    const images = results.map(item => ({
-      url: item.secure_url,
-      public_id: item.public_id
-    }));
+  const images = results.map(item => ({
+  secure_url: item.secure_url,
+  public_id: item.public_id
+  }));
 
     res.status(200).json({
       success: true,
