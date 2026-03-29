@@ -130,6 +130,8 @@ export const getSingleProduct = async (req, res, next) => {
          slug: req.params.slug,
          isActive: true
       }).populate("category", "name slug");
+      console.log("Slug from request:", req.params.slug);
+
 
       if (!product) {
          return res.status(404).json({
@@ -143,7 +145,6 @@ export const getSingleProduct = async (req, res, next) => {
       next(error);
    }
 };
-
 
 
 // ============================ Update Product (Admin) ============================
@@ -178,7 +179,7 @@ export const updateProduct = async (req, res, next) => {
 export const deleteProduct = async (req, res, next) => {
    try {
 
-      const product = await Product.findById(req.params.id);
+      const product = await Product.findByIdAndDelete(req.params.id);
 
       if (!product) {
          return res.status(404).json({
@@ -186,11 +187,8 @@ export const deleteProduct = async (req, res, next) => {
          });
       }
 
-      product.isActive = false;
-      await product.save();
-
       res.status(200).json({
-         message: "Product deactivated successfully"
+         message: "Product permanently deleted"
       });
 
    } catch (error) {
