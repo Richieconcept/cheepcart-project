@@ -55,11 +55,20 @@ const corsOptions = {
 // Apply CORS to all routes
 // app.use(cors(corsOptions));
 
+// app.use(cors({
+//   origin: [
+//     "http://localhost:5173",
+//     "https://cheepcart-api-documentation.vercel.app/"
+//   ],
+//   credentials: true
+// }));
+
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://cheepcart-api-documentation.vercel.app/"
+    "https://cheepcart-api-documentation.vercel.app"
   ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
 }));
 
