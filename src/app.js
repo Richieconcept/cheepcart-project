@@ -14,6 +14,8 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import checkoutRoutes from "./routes/checkout.route.js";
 import shippingRoutes from "./routes/shipping.route.js";
+import orderRoutes from "./routes/order.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 
 
 
@@ -101,6 +103,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/shipping", shippingRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // cart route
 app.use("/api/cart", cartRoutes);
