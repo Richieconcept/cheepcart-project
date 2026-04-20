@@ -368,9 +368,18 @@ export const handlePaystackWebhook = async (req, res) => {
       await order.save();
 
            // ✅ FETCH USER + SEND EMAIL
-      const user = await User.findById(order.user);
-      await sendPaymentSuccessEmail(order, user);
+try {
+  const user = await User.findById(order.user);
 
+  if (user) {
+    await sendPaymentSuccessEmail(order, user);
+    console.log("📩 Webhook payment email sent");
+  } else {
+    console.log("❌ User not found for email");
+  }
+} catch (err) {
+  console.log("❌ Webhook email error:", err.message);
+}
 
       // ================= CLEAR CART =================
       await Cart.findOneAndUpdate(
