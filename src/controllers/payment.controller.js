@@ -363,14 +363,43 @@ export const handlePaystackWebhook = async (req, res) => {
       );
 
       // ================= CREATE SHIPMENT =================
-      // ================= CREATE SHIPMENT =================
-try {
-  // ✅ Re-fetch order with full data to ensure all fields are populated
-  const freshOrder = await Order.findById(order._id);
-  
-  const payload = buildShipmentPayload(freshOrder); // ✅ use shared builder
+      try {
+        const payload = {
+        senderCity: "Asaba",
+        senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
 
-  const shipmentResponse = await createRedstarShipment(payload);
+        senderName: "CHEEPCART",
+        senderPhone: "08000000000",
+        senderAddress: process.env.SENDER_ADDRESS,
+
+        recipientCity: "Asaba",
+        recipientTownID: Number(order.shippingAddress.redstarTownId),
+
+        recipientName: order.shippingAddress.fullName,
+        recipientPhoneNo: order.shippingAddress.phone,
+        recipientEmail: order.shippingAddress.email,
+        recipientAddress: order.shippingAddress.addressLine1,
+        recipientState: order.shippingAddress.state,
+
+        orderNo: order.orderNumber,
+
+        deliveryType: "Express Delivery",
+        description: "E-commerce order",
+
+        paymentType: "Prepaid",
+        pickupType: order.meta.pickupType,
+
+        weight: order.meta.totalWeight,
+        pieces: order.meta.totalItems,
+
+        cashOnDelivery: 0,
+        shipmentItems: [],
+        };
+
+        console.log("📦 WEBHOOK PAYLOAD:");
+        console.log(JSON.stringify(payload, null, 2));
+
+        const shipmentResponse = await createRedstarShipment(payload);
 
         console.log("🚚 REDSTAR RESPONSE:");
         console.log(JSON.stringify(shipmentResponse, null, 2));
