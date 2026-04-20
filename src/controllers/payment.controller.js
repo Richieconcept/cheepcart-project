@@ -9,7 +9,7 @@ import {
 } from "../services/paystack.service.js";
 import { createRedstarShipment } from "../services/redstar.service.js";
 import { buildShipmentPayload } from "./shipment.controller.js";
-import { sendPaymentSuccessEmail } from "../utils/notifications.js";
+import { sendPaymentSuccessEmail, shipmentCreatedTemplate } from "../utils/notifications.js";
 
 
 
@@ -261,6 +261,14 @@ export const verifyOrderPayment = async (req, res, next) => {
 
       await order.save();
 
+        // ✅ SEND EMAIL
+  try {
+    await sendShipmentCreatedEmail(order, req.user);
+    console.log("📩 Shipment email sent");
+  } catch (err) {
+    console.log("❌ Shipment email error:", err.message);
+  }
+
     } catch (shipmentError) {
       order.shipmentStatus = "failed";
       await order.save();
@@ -451,6 +459,18 @@ try {
         }
 
         await order.save();
+
+         // ✅ SEND EMAIL
+  try {
+    const user = await User.findById(order.user);
+    if (user) {
+      await sendShipmentCreatedEmail(order, user);
+      console.log("📩 Webhook shipment email sent");
+    }
+  } catch (err) {
+    console.log("❌ Webhook shipment email error:", err.message);
+  }
+}
 
       } catch (err) {
         console.log("🚨 WEBHOOK SHIPMENT ERROR");
