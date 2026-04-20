@@ -8,6 +8,8 @@ import {
 } from "../services/paystack.service.js";
 import { createRedstarShipment } from "../services/redstar.service.js";
 import { buildShipmentPayload } from "./shipment.controller.js";
+import { sendPaymentSuccessEmail } from "../utils/notifications.js";
+
 
 
 // ========================== INITIALIZE ORDER PAYMENT ==========================
@@ -187,6 +189,9 @@ export const verifyOrderPayment = async (req, res, next) => {
     order.orderStatus = "confirmed";
     await order.save();
 
+       // ✅ SEND EMAIL HERE
+    await sendPaymentSuccessEmail(order, req.user);
+
     // ================= CLEAR CART =================
     await Cart.findOneAndUpdate(
       { user: req.user._id },
@@ -355,6 +360,11 @@ export const handlePaystackWebhook = async (req, res) => {
       order.orderStatus = "confirmed";
 
       await order.save();
+
+           // ✅ FETCH USER + SEND EMAIL
+      const user = await User.findById(order.user);
+      await sendPaymentSuccessEmail(order, user);
+
 
       // ================= CLEAR CART =================
       await Cart.findOneAndUpdate(

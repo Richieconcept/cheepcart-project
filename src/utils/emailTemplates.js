@@ -121,7 +121,7 @@ export const abandonedOrderTemplate = (name, order) => {
 
         <!-- CTA BUTTON -->
         <div style="text-align:center; margin:30px 0;">
-          <a href="https://your-frontend-url.com/orders/${order._id}"
+          <a href="https://cheepcarts.com/orders/${order._id}"
              style="
                background:#ff7a00;
                color:white;
@@ -151,26 +151,70 @@ export const abandonedOrderTemplate = (name, order) => {
 };
 
 // ================================payment successful email templates =============================
-
 export const paymentSuccessTemplate = (name, order) => {
+  const itemsHtml = order.items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding:10px 0;">
+          <img src="${item.image}" width="60" style="border-radius:6px;" />
+        </td>
+        <td style="padding:10px;">
+          <strong>${item.name}</strong><br/>
+          Qty: ${item.quantity}
+        </td>
+        <td style="padding:10px; text-align:right;">
+          ₦${item.subtotal}
+        </td>
+      </tr>
+    `
+    )
+    .join("");
+
   return `
-    <div style="font-family: Arial; max-width: 600px; margin: auto;">
-      <h2 style="color:#860181;">Payment Successful ✅</h2>
+  <div style="font-family: Arial; background:#f8f8f8; padding:20px;">
+    
+    <div style="max-width:600px; margin:auto; background:white; border-radius:10px; overflow:hidden;">
+      
+      <!-- HEADER -->
+      <div style="background:#860181; padding:20px; text-align:center; color:white;">
+        <h2>Payment Confirmed ✅</h2>
+      </div>
 
-      <p>Hi ${name},</p>
+      <div style="padding:20px;">
+        <p>Hi <strong>${name}</strong>,</p>
 
-      <p>Your payment was successful.</p>
+        <p>Your payment was successful. Your order is now being processed.</p>
 
-      <p><strong>Order:</strong> ${order.orderNumber}</p>
-      <p><strong>Amount Paid:</strong> ₦${order.pricing.totalAmount}</p>
+        <!-- ITEMS -->
+        <table width="100%">
+          ${itemsHtml}
+        </table>
 
-      <p>Your order is now being processed.</p>
+        <hr style="margin:20px 0;" />
 
-      <p>— CheepCart Team</p>
+        <p style="font-size:18px;">
+          <strong>Total Paid: ₦${order.pricing.totalAmount}</strong>
+        </p>
+
+        <div style="text-align:center; margin:30px 0;">
+          <a href="${process.env.FRONTEND_URL}/order/${order._id}"
+             style="background:#ff7a00; color:white; padding:15px 25px; border-radius:6px; text-decoration:none;">
+            View Order
+          </a>
+        </div>
+
+        <p>We’ll notify you once your order is shipped 🚚</p>
+      </div>
+
+      <div style="background:#f2f2f2; padding:15px; text-align:center; font-size:12px;">
+        © ${new Date().getFullYear()} CheepCart
+      </div>
+
     </div>
+  </div>
   `;
 };
-
 
 // ======shipment creation email =====================
 
