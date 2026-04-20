@@ -310,9 +310,12 @@ export const handlePaystackWebhook = async (req, res) => {
       const paymentData = event.data;
       const reference = paymentData.reference;
 
-      const order = await Order.findOne({
-        paymentReference: reference,
-      });
+     let order = await Order.findOne({
+  paymentReference: reference,
+});
+
+// 🔥 FORCE fresh data from DB
+order = await Order.findById(order._id);
 
       if (!order) {
         console.log("❌ Order not found for reference:", reference);
@@ -334,9 +337,12 @@ export const handlePaystackWebhook = async (req, res) => {
 
       // ================= SAFETY CHECKS =================
       if (!order.meta) {
-        console.log("❌ Missing order.meta");
-        return res.sendStatus(200);
-      }
+  throw new Error("Missing order.meta in webhook");
+}
+
+if (!order.shippingAddress?.redstarTownId) {
+  throw new Error("Missing redstarTownId in webhook");
+}
 
       if (!order.shippingAddress?.redstarTownId) {
         console.log("❌ Missing redstarTownId");
@@ -374,50 +380,64 @@ export const handlePaystackWebhook = async (req, res) => {
       );
 
       // ================= CREATE SHIPMENT =================
-      try {
-        // ✅ USE SAME PAYLOAD AS MANUAL (VERY IMPORTANT)
-        const payload = buildShipmentPayload(order);
+      // ================= CREATE SHIPMENT =================
+try {
+  // 🔥 wait for DB consistency
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        console.log("📦 WEBHOOK PAYLOAD:");
-        console.log(JSON.stringify(payload, null, 2));
+  // 🔥 re-fetch latest order
+  const freshOrder = await Order.findById(order._id);
 
-        const shipmentResponse = await createRedstarShipment(payload);
+  if (!freshOrder.meta) {
+    throw new Error("Missing order.meta in webhook");
+  }
 
-        console.log("🚚 REDSTAR RESPONSE:");
-        console.log(JSON.stringify(shipmentResponse, null, 2));
+  if (!freshOrder.shippingAddress?.redstarTownId) {
+    throw new Error("Missing redstarTownId in webhook");
+  }
 
-        if (shipmentResponse?.TransStatus !== "Successful") {
-          console.log("❌ Shipment failed:", shipmentResponse);
-          order.shipmentStatus = "failed";
-        } else {
-          console.log("✅ Shipment created successfully");
+  const payload = buildShipmentPayload(freshOrder);
 
-          order.shipmentStatus = "created";
-          order.deliveryStatus = "pending";
-          order.orderStatus = "processing";
+  console.log("📦 WEBHOOK PAYLOAD:");
+  console.log(JSON.stringify(payload, null, 2));
 
-          order.shipmentReference = shipmentResponse?.OrderNo || null;
+  const shipmentResponse = await createRedstarShipment(payload);
 
-          order.trackingNumber =
-            shipmentResponse?.WaybillNumber &&
-            shipmentResponse?.WaybillNumber !== "N/A"
-              ? shipmentResponse.WaybillNumber
-              : null;
+  console.log("🚚 REDSTAR RESPONSE:");
+  console.log(JSON.stringify(shipmentResponse, null, 2));
 
-          order.shipmentCreatedAt = new Date();
-        }
+  if (shipmentResponse?.TransStatus !== "Successful") {
+    console.log("❌ Shipment failed:", shipmentResponse);
+    order.shipmentStatus = "failed";
+  } else {
+    console.log("✅ Shipment created successfully");
 
-        await order.save();
+    order.shipmentStatus = "created";
+    order.deliveryStatus = "pending";
+    order.orderStatus = "processing";
 
-      } catch (err) {
-        console.log("🚨 WEBHOOK SHIPMENT ERROR");
-        console.log("Status:", err.response?.status);
-        console.log("Data:", JSON.stringify(err.response?.data, null, 2));
-        console.log("Message:", err.message);
+    order.shipmentReference = shipmentResponse?.OrderNo || null;
 
-        order.shipmentStatus = "failed";
-        await order.save();
-      }
+    order.trackingNumber =
+      shipmentResponse?.WaybillNumber &&
+      shipmentResponse?.WaybillNumber !== "N/A"
+        ? shipmentResponse.WaybillNumber
+        : null;
+
+    order.shipmentCreatedAt = new Date();
+  }
+
+  await order.save();
+
+} catch (err) {
+  console.log("🚨 WEBHOOK SHIPMENT ERROR");
+  console.log("Message:", err.message);
+  console.log("Status:", err.response?.status);
+  console.log("Data:", JSON.stringify(err.response?.data, null, 2));
+
+  order.shipmentStatus = "failed";
+  await order.save();
+}
     }
 
     return res.sendStatus(200);
