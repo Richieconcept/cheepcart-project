@@ -70,26 +70,85 @@ export const passwordResetEmailTemplate = (name, otp) => {
 
 
 // =================Abandon order email templates=============================
-
 export const abandonedOrderTemplate = (name, order) => {
+  const itemsHtml = order.items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding:10px 0;">
+          <img src="${item.image}" alt="${item.name}" width="60" style="border-radius:6px;" />
+        </td>
+        <td style="padding:10px;">
+          <strong>${item.name}</strong><br/>
+          Qty: ${item.quantity}
+        </td>
+        <td style="padding:10px; text-align:right;">
+          ₦${item.subtotal}
+        </td>
+      </tr>
+    `
+    )
+    .join("");
+
   return `
-    <div style="font-family: Arial; max-width: 600px; margin: auto;">
-      <h2 style="color:#860181;">Complete Your Order 🛒</h2>
+  <div style="font-family: Arial, sans-serif; background:#f8f8f8; padding:20px;">
+    
+    <div style="max-width:600px; margin:auto; background:white; border-radius:10px; overflow:hidden;">
+      
+      <!-- HEADER -->
+      <div style="background:#860181; padding:20px; text-align:center; color:white;">
+        <h2 style="margin:0;">CheepCart</h2>
+      </div>
 
-      <p>Hi ${name},</p>
+      <!-- BODY -->
+      <div style="padding:20px;">
+        <h3 style="color:#860181;">You left something behind 👀</h3>
 
-      <p>You have a pending order waiting for payment.</p>
+        <p>Hi <strong>${name}</strong>,</p>
 
-      <p><strong>Order:</strong> ${order.orderNumber}</p>
-      <p><strong>Total:</strong> ₦${order.pricing.totalAmount}</p>
+        <p>You added these items to your order but didn’t complete payment.</p>
 
-      <p>Please complete your payment before it expires.</p>
+        <!-- ITEMS -->
+        <table width="100%" style="border-collapse:collapse;">
+          ${itemsHtml}
+        </table>
 
-      <p>— CheepCart Team</p>
+        <hr style="margin:20px 0;" />
+
+        <p style="font-size:18px;">
+          <strong>Total: ₦${order.pricing.totalAmount}</strong>
+        </p>
+
+        <!-- CTA BUTTON -->
+        <div style="text-align:center; margin:30px 0;">
+          <a href="https://your-frontend-url.com/orders/${order._id}"
+             style="
+               background:#ff7a00;
+               color:white;
+               padding:15px 25px;
+               text-decoration:none;
+               border-radius:6px;
+               font-weight:bold;
+               display:inline-block;
+             ">
+            Complete Your Order
+          </a>
+        </div>
+
+        <p style="color:#555;">
+          Hurry before your items go out of stock.
+        </p>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="background:#f2f2f2; padding:15px; text-align:center; font-size:12px;">
+        <p>© ${new Date().getFullYear()} CheepCart</p>
+      </div>
+
     </div>
+  </div>
   `;
 };
-
 
 // ================================payment successful email templates =============================
 
