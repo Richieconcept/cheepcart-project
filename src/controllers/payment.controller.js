@@ -7,6 +7,8 @@ import {
   verifyPaystackPayment,
 } from "../services/paystack.service.js";
 import { createRedstarShipment } from "../services/redstar.service.js";
+import { buildShipmentPayload } from "./shipment.controller.js";
+
 
 // ========================== INITIALIZE ORDER PAYMENT ==========================
 export const initializeOrderPayment = async (req, res, next) => {
@@ -277,13 +279,9 @@ export const verifyOrderPayment = async (req, res, next) => {
 };
 
 
-
-// ==============paystck webhook==========================
-
-
-
+// ============== PAYSTACK WEBHOOK ===========================
 export const handlePaystackWebhook = async (req, res) => {
-    console.log("🔥 WEBHOOK HIT"); // ✅ ADD HERE
+  console.log("🔥 WEBHOOK HIT");
 
   try {
     const secret = process.env.PAYSTACK_SECRET_KEY;
@@ -296,18 +294,19 @@ export const handlePaystackWebhook = async (req, res) => {
     const signature = req.headers["x-paystack-signature"];
 
     if (hash !== signature) {
-        console.log("❌ Invalid signature"); // ✅ ADD
+      console.log("❌ Invalid signature");
       return res.status(401).send("Invalid signature");
     }
 
-    console.log("✅ Signature verified"); // ✅ ADD
+    console.log("✅ Signature verified");
 
     const event = JSON.parse(req.body.toString());
-    console.log("📡 Event received:", event.event); // ✅ ADD
+    console.log("📡 Event received:", event.event);
 
     // 🔥 ONLY HANDLE SUCCESS PAYMENT
     if (event.event === "charge.success") {
-        console.log("💰 Payment success webhook received"); // ✅ ADD
+      console.log("💰 Payment success webhook received");
+
       const paymentData = event.data;
       const reference = paymentData.reference;
 
@@ -315,16 +314,32 @@ export const handlePaystackWebhook = async (req, res) => {
         paymentReference: reference,
       });
 
-      if (!order) return res.sendStatus(200);
+      if (!order) {
+        console.log("❌ Order not found for reference:", reference);
+        return res.sendStatus(200);
+      }
 
       // ✅ PREVENT DOUBLE PROCESSING
       if (order.paymentStatus === "paid") {
+        console.log("⚠️ Order already processed");
         return res.sendStatus(200);
       }
 
       const paidAmount = Number(paymentData.amount) / 100;
 
       if (paidAmount !== Number(order.pricing.totalAmount)) {
+        console.log("❌ Amount mismatch");
+        return res.sendStatus(200);
+      }
+
+      // ================= SAFETY CHECKS =================
+      if (!order.meta) {
+        console.log("❌ Missing order.meta");
+        return res.sendStatus(200);
+      }
+
+      if (!order.shippingAddress?.redstarTownId) {
+        console.log("❌ Missing redstarTownId");
         return res.sendStatus(200);
       }
 
@@ -333,6 +348,7 @@ export const handlePaystackWebhook = async (req, res) => {
         const product = await Product.findById(item.productId);
 
         if (!product || !product.isActive || product.stock < item.quantity) {
+          console.log("❌ Stock issue for:", item.name);
           return res.sendStatus(200);
         }
       }
@@ -359,46 +375,24 @@ export const handlePaystackWebhook = async (req, res) => {
 
       // ================= CREATE SHIPMENT =================
       try {
-        const payload = {
-          senderCity: "Asaba",
-          senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
+        // ✅ USE SAME PAYLOAD AS MANUAL (VERY IMPORTANT)
+        const payload = buildShipmentPayload(order);
 
-          senderName: "CHEEPCART",
-          senderPhone: "08000000000",
-          senderAddress: process.env.SENDER_ADDRESS,
-
-          recipientCity: "Asaba",
-          recipientTownID: Number(order.shippingAddress.redstarTownId),
-
-          recipientName: order.shippingAddress.fullName,
-          recipientPhoneNo: order.shippingAddress.phone,
-          recipientEmail: order.shippingAddress.email,
-          recipientAddress: order.shippingAddress.addressLine1,
-          recipientState: order.shippingAddress.state,
-
-          orderNo: order.orderNumber,
-
-          deliveryType: "Express Delivery",
-          description: "E-commerce order",
-
-          paymentType: "Prepaid",
-          pickupType: order.meta.pickupType,
-
-          weight: order.meta.totalWeight,
-          pieces: order.meta.totalItems,
-
-          cashOnDelivery: 0,
-          shipmentItems: [],
-        };
+        console.log("📦 WEBHOOK PAYLOAD:");
+        console.log(JSON.stringify(payload, null, 2));
 
         const shipmentResponse = await createRedstarShipment(payload);
 
+        console.log("🚚 REDSTAR RESPONSE:");
+        console.log(JSON.stringify(shipmentResponse, null, 2));
+
         if (shipmentResponse?.TransStatus !== "Successful") {
+          console.log("❌ Shipment failed:", shipmentResponse);
           order.shipmentStatus = "failed";
         } else {
-          order.shipmentStatus = "created";
+          console.log("✅ Shipment created successfully");
 
-          // ✅ IMPORTANT SYNC
+          order.shipmentStatus = "created";
           order.deliveryStatus = "pending";
           order.orderStatus = "processing";
 
@@ -414,7 +408,13 @@ export const handlePaystackWebhook = async (req, res) => {
         }
 
         await order.save();
+
       } catch (err) {
+        console.log("🚨 WEBHOOK SHIPMENT ERROR");
+        console.log("Status:", err.response?.status);
+        console.log("Data:", JSON.stringify(err.response?.data, null, 2));
+        console.log("Message:", err.message);
+
         order.shipmentStatus = "failed";
         await order.save();
       }

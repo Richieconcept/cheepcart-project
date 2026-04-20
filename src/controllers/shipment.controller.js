@@ -4,7 +4,7 @@ import { mapToAppStatus } from "../utils/shipmentStatusMapper.js";
 import { mapDeliveryToOrderStatus } from "../utils/statusMapper.js";
 
 // ================= BUILD PAYLOAD =================
-const buildShipmentPayload = (order) => {
+export  const buildShipmentPayload = (order) => {
   return {
     senderCity: "Asaba",
     senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
