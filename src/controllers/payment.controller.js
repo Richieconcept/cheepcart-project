@@ -1,6 +1,7 @@
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import Cart from "../models/cart.model.js";
+import User from "../models/user.js";
 import crypto from "crypto";
 import {
   initializePaystackPayment,
@@ -190,7 +191,12 @@ export const verifyOrderPayment = async (req, res, next) => {
     await order.save();
 
        // ✅ SEND EMAIL HERE
-    await sendPaymentSuccessEmail(order, req.user);
+    try {
+  await sendPaymentSuccessEmail(order, req.user);
+  console.log("📩 Payment success email sent");
+} catch (err) {
+  console.log("❌ Payment email error:", err.message);
+}
 
     // ================= CLEAR CART =================
     await Cart.findOneAndUpdate(
