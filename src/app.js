@@ -83,6 +83,16 @@ app.use(cors({
 
 
 
+
+// ✅ FIRST: webhook raw parser (VERY IMPORTANT)
+app.use(
+  "/api/payments/webhook",
+  express.raw({ type: "*/*" })
+);
+
+
+
+
 // Security & middleware
 app.use(helmet());
 app.use(express.json());
