@@ -241,33 +241,36 @@ export const verifyOrderPayment = async (req, res, next) => {
       const shipmentResponse = await createRedstarShipment(payload);
 
       if (shipmentResponse?.TransStatus !== "Successful") {
-        order.shipmentStatus = "failed";
-      } else {
-        order.shipmentStatus = "created";
+  order.shipmentStatus = "failed";
+} else {
+  order.shipmentStatus = "created";
 
-         order.deliveryStatus = "pending"; // ✅ ADD
-        order.orderStatus = "processing"; // ✅ ADD
+  order.deliveryStatus = "pending";
+  order.orderStatus = "processing";
 
-        order.shipmentReference = shipmentResponse?.OrderNo || null;
+  order.shipmentReference = shipmentResponse?.OrderNo || null;
 
-        order.trackingNumber =
-          shipmentResponse?.WaybillNumber &&
-          shipmentResponse?.WaybillNumber !== "N/A"
-            ? shipmentResponse.WaybillNumber
-            : null;
+  order.trackingNumber =
+    shipmentResponse?.WaybillNumber &&
+    shipmentResponse?.WaybillNumber !== "N/A"
+      ? shipmentResponse.WaybillNumber
+      : null;
 
-        order.shipmentCreatedAt = new Date();
-      }
+  order.shipmentCreatedAt = new Date();
 
-      await order.save();
+  await order.save();
 
-        // ✅ SEND EMAIL
+  // ✅ SEND EMAIL HERE
   try {
-    await sendShipmentCreatedEmail(order, req.user);
-    console.log("📩 Shipment email sent");
+    const user = await User.findById(order.user);
+    if (user) {
+      await sendShipmentCreatedEmail(order, user);
+      console.log("📩 Webhook shipment email sent");
+    }
   } catch (err) {
-    console.log("❌ Shipment email error:", err.message);
+    console.log("❌ Webhook shipment email error:", err.message);
   }
+}
 
     } catch (shipmentError) {
       order.shipmentStatus = "failed";
