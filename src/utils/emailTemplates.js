@@ -69,3 +69,72 @@ export const passwordResetEmailTemplate = (name, otp) => {
 
 
 
+// =================Abandon order email templates=============================
+
+export const abandonedOrderTemplate = (name, order) => {
+  return `
+    <div style="font-family: Arial; max-width: 600px; margin: auto;">
+      <h2 style="color:#860181;">Complete Your Order 🛒</h2>
+
+      <p>Hi ${name},</p>
+
+      <p>You have a pending order waiting for payment.</p>
+
+      <p><strong>Order:</strong> ${order.orderNumber}</p>
+      <p><strong>Total:</strong> ₦${order.pricing.totalAmount}</p>
+
+      <p>Please complete your payment before it expires.</p>
+
+      <p>— CheepCart Team</p>
+    </div>
+  `;
+};
+
+
+// ================================payment successful email templates =============================
+
+export const paymentSuccessTemplate = (name, order) => {
+  return `
+    <div style="font-family: Arial; max-width: 600px; margin: auto;">
+      <h2 style="color:#860181;">Payment Successful ✅</h2>
+
+      <p>Hi ${name},</p>
+
+      <p>Your payment was successful.</p>
+
+      <p><strong>Order:</strong> ${order.orderNumber}</p>
+      <p><strong>Amount Paid:</strong> ₦${order.pricing.totalAmount}</p>
+
+      <p>Your order is now being processed.</p>
+
+      <p>— CheepCart Team</p>
+    </div>
+  `;
+};
+
+
+// ======shipment creation email =====================
+
+export const shipmentCreatedTemplate = (name, order) => {
+  return `
+    <div style="font-family: Arial; max-width: 600px; margin: auto;">
+      <h2 style="color:#860181;">Your Order Has Been Shipped 🚚</h2>
+
+      <p>Hi ${name},</p>
+
+      <p>Your order is on the way.</p>
+
+      <p><strong>Order:</strong> ${order.orderNumber}</p>
+
+      ${
+        order.trackingNumber
+          ? `<p><strong>Tracking Number:</strong> ${order.trackingNumber}</p>`
+          : `<p>Tracking will be available shortly.</p>`
+      }
+
+      <p>— CheepCart Team</p>
+    </div>
+  `;
+};
+
+

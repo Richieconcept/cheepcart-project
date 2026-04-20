@@ -5,6 +5,7 @@ import Address from "../models/address.model.js";
 import Order from "../models/order.model.js"
 import Product from "../models/product.model.js";
 import { calculateRedstarDeliveryFee } from "../services/redstar.service.js";
+import { sendAbandonedOrderEmail } from "../utils/notifications.js";
 
 // ========================== CREATE ORDER ==========================
 export const createOrder = async (req, res, next) => {
@@ -171,6 +172,7 @@ export const createOrder = async (req, res, next) => {
     }
 
     const order = await Order.create({
+      
       user: req.user._id,
       customerEmail: req.user.email,
       items: validatedItems,
@@ -198,6 +200,27 @@ export const createOrder = async (req, res, next) => {
       orderStatus: "pending",
       shipmentStatus: "not_created",
     });
+
+
+    // ================= ABANDONED ORDER EMAIL =================
+    setTimeout(async () => {
+      try {
+        const freshOrder = await Order.findById(order._id);
+
+        if (
+          freshOrder &&
+          freshOrder.paymentStatus === "unpaid" &&
+          freshOrder.orderStatus === "pending"
+        ) {
+          console.log("📩 Sending abandoned order email");
+
+          await sendAbandonedOrderEmail(freshOrder, req.user);
+        }
+      } catch (err) {
+        console.log("❌ Abandoned email error:", err.message);
+      }
+    }, 1000 * 10);  // 15 minutes
+
 
     return res.status(201).json({
       success: true,
