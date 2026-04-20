@@ -460,7 +460,7 @@ try {
 
         await order.save();
 
-         // ✅ SEND EMAIL
+          // ✅ SEND EMAIL
   try {
     const user = await User.findById(order.user);
     if (user) {
@@ -470,7 +470,6 @@ try {
   } catch (err) {
     console.log("❌ Webhook shipment email error:", err.message);
   }
-}
 
       } catch (err) {
         console.log("🚨 WEBHOOK SHIPMENT ERROR");
