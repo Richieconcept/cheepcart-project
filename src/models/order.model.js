@@ -122,12 +122,74 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
-    shipmentStatus: {
-      type: String,
-      enum: ["not_created", "pending", "created", "in_transit", "delivered", "failed"],
-      default: "not_created",
-      index: true,
-    },
+
+shipmentStatus: {
+  type: String,
+  enum: [
+    "not_created",
+    "pending",
+    "created",
+    "in_transit",
+    "out_for_delivery",
+    "delivered",
+    "failed"
+  ],
+  default: "not_created",
+  index: true,
+},
+
+// 🔥 NEW — USER-FACING DELIVERY STATUS
+deliveryStatus: {
+  type: String,
+  enum: [
+    "pending",
+    "picked",
+    "in_transit",
+    "out_for_delivery",
+    "delivered",
+    "issue",
+    "delayed"
+  ],
+  default: "pending",
+  index: true,
+},
+
+// 🔥 TRACKING + REFERENCE
+shipmentReference: {
+  type: String,
+  default: null,
+},
+
+trackingNumber: {
+  type: String,
+  default: null,
+  index: true,
+},
+
+shipmentCreatedAt: {
+  type: Date,
+  default: null,
+},
+
+// 🔥 ERROR HANDLING (VERY IMPORTANT)
+shipmentError: {
+  type: String,
+  default: null,
+},
+
+// 🔁 RETRY CONTROL
+shipmentRetryCount: {
+  type: Number,
+  default: 0,
+},
+
+// 🕒 LAST TRACK SYNC
+lastTrackedAt: {
+  type: Date,
+  default: null,
+},
+
+
     shipmentReference: {
       type: String,
       default: null,

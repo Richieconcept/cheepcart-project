@@ -3,6 +3,7 @@
 import Cart from "../models/cart.model.js";
 import Address from "../models/address.model.js";
 import Order from "../models/order.model.js"
+import Product from "../models/product.model.js";
 import { calculateRedstarDeliveryFee } from "../services/redstar.service.js";
 
 // ========================== CREATE ORDER ==========================
@@ -287,24 +288,37 @@ export const getSingleOrder = async (req, res, next) => {
 };
 
 
-
 // ========================== CANCEL PENDING ORDER ==========================
 export const cancelPendingOrder = async (req, res, next) => {
   try {
     const { orderId } = req.params;
 
-    // Check if the order exists and is unpaid and pending
+    // Find the order and check if it's unpaid and pending
     const order = await Order.findOne({
       _id: orderId,
       user: req.user._id,
-      paymentStatus: "unpaid", // only unpaid orders can be canceled
-      orderStatus: "pending",  // only pending orders can be canceled
     });
+
+    console.log('Order:', order); // Debug log to inspect order data
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found or already processed",
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentStatus !== "unpaid") {
+      return res.status(400).json({
+        success: false,
+        message: "Only unpaid orders can be cancelled",
+      });
+    }
+
+    if (order.orderStatus !== "pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Only pending orders can be cancelled",
       });
     }
 
@@ -331,27 +345,26 @@ export const cancelPendingOrder = async (req, res, next) => {
   }
 };
 
+
 // ========================== DELETE CANCELED ORDER ==========================
 export const deleteCanceledOrder = async (req, res, next) => {
   try {
     const { orderId } = req.params;
 
-    // Find the order and check if it's canceled
     const order = await Order.findOne({
       _id: orderId,
       user: req.user._id,
-      orderStatus: "cancelled",  // Only allow deletion if canceled
+      orderStatus: "cancelled",
     });
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: "Order not found or not canceled",
+        message: "Order not found or not cancelled",
       });
     }
 
-    // Delete the canceled order
-    await order.remove();
+    await Order.deleteOne({ _id: orderId });
 
     return res.status(200).json({
       success: true,

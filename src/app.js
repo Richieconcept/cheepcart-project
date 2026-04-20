@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import authRoutes from "../src/routes/authRoutes.js";
+import { startShipmentSyncJob } from "./jobs/shipmentSync.job.js";
 import { notFound, errorHandler } from "../src/middlewares/errorMiddleware.js";
 import userRoutes from "../src/routes/userRoutes.js";
 import uploadRoutes from "../src/routes/uploadRoutes.js";
@@ -16,6 +17,8 @@ import checkoutRoutes from "./routes/checkout.route.js";
 import shippingRoutes from "./routes/shipping.route.js";
 import orderRoutes from "./routes/order.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import shipmentRoutes from "./routes/shipment.routes.js";
+
 
 
 
@@ -29,6 +32,10 @@ const app = express();
 
 // VERY IMPORTANT for Render / production
 app.set("trust proxy", 1);
+
+
+// cron job for automatic shipment tracking
+startShipmentSyncJob();
 
 
 
@@ -105,6 +112,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/shipping", shippingRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/shipments", shipmentRoutes);
 
 // cart route
 app.use("/api/cart", cartRoutes);

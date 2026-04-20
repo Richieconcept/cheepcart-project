@@ -5,6 +5,7 @@ import {
   initializePaystackPayment,
   verifyPaystackPayment,
 } from "../services/paystack.service.js";
+import { createRedstarShipment } from "../services/redstar.service.js";
 
 // ========================== INITIALIZE ORDER PAYMENT ==========================
 export const initializeOrderPayment = async (req, res, next) => {
@@ -41,7 +42,7 @@ export const initializeOrderPayment = async (req, res, next) => {
 
     const paystackResponse = await initializePaystackPayment({
       email: order.customerEmail,
-      amount: Math.round(Number(order.pricing.totalAmount) * 100), // Kobo
+      amount: Math.round(Number(order.pricing.totalAmount) * 100),
       reference,
       callbackUrl: process.env.PAYSTACK_CALLBACK_URL,
       metadata: {
@@ -150,7 +151,7 @@ export const verifyOrderPayment = async (req, res, next) => {
       });
     }
 
-    // Recheck stock before confirming payment
+    // ================= STOCK VALIDATION =================
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
 
@@ -169,34 +170,107 @@ export const verifyOrderPayment = async (req, res, next) => {
       }
     }
 
-    // Deduct stock
+    // ================= DEDUCT STOCK =================
     for (const item of order.items) {
       const product = await Product.findById(item.productId);
       product.stock -= item.quantity;
       await product.save();
     }
 
-    // Update order
+    // ================= UPDATE ORDER =================
     order.paymentStatus = "paid";
     order.paymentReference = reference;
     order.paidAt = new Date();
     order.orderStatus = "confirmed";
     await order.save();
 
-    // Clear cart after successful payment
+    // ================= CLEAR CART =================
     await Cart.findOneAndUpdate(
       { user: req.user._id },
       { items: [], totalItems: 0, totalPrice: 0 }
     );
 
+    // ================= AUTO CREATE SHIPMENT =================
+    try {
+      const payload = {
+        senderCity: "Asaba",
+        senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
+
+        senderName: "CHEEPCART",
+        senderPhone: "08000000000",
+        senderAddress: process.env.SENDER_ADDRESS,
+
+        recipientCity: "Asaba",
+        recipientTownID: Number(order.shippingAddress.redstarTownId),
+
+        recipientName: order.shippingAddress.fullName,
+        recipientPhoneNo: order.shippingAddress.phone,
+        recipientEmail: order.shippingAddress.email,
+        recipientAddress: order.shippingAddress.addressLine1,
+        recipientState: order.shippingAddress.state,
+
+        orderNo: order.orderNumber,
+
+        deliveryType: "Express Delivery",
+        description: "E-commerce order",
+
+        paymentType: "Prepaid",
+        pickupType: order.meta.pickupType,
+
+        weight: order.meta.totalWeight,
+        pieces: order.meta.totalItems,
+
+        cashOnDelivery: 0,
+        shipmentItems: [],
+      };
+
+      const shipmentResponse = await createRedstarShipment(payload);
+
+      if (shipmentResponse?.TransStatus !== "Successful") {
+        order.shipmentStatus = "failed";
+      } else {
+        order.shipmentStatus = "created";
+
+         order.deliveryStatus = "pending"; // ✅ ADD
+        order.orderStatus = "processing"; // ✅ ADD
+
+        order.shipmentReference = shipmentResponse?.OrderNo || null;
+
+        order.trackingNumber =
+          shipmentResponse?.WaybillNumber &&
+          shipmentResponse?.WaybillNumber !== "N/A"
+            ? shipmentResponse.WaybillNumber
+            : null;
+
+        order.shipmentCreatedAt = new Date();
+      }
+
+      await order.save();
+
+    } catch (shipmentError) {
+      order.shipmentStatus = "failed";
+      await order.save();
+    }
+
+    // ================= FINAL RESPONSE =================
     return res.status(200).json({
       success: true,
       message: "Payment verified successfully",
       order,
-      nextStep: "Create shipment with RedStar",
+      shipment:
+        order.shipmentStatus === "created"
+          ? {
+              trackingNumber: order.trackingNumber,
+              shipmentStatus: order.shipmentStatus,
+              shipmentReference: order.shipmentReference,
+              createdAt: order.shipmentCreatedAt,
+            }
+          : {
+              shipmentStatus: "failed",
+            },
     });
+
   } catch (error) {
     next(error);
   }
 };
-

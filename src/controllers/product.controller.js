@@ -2,6 +2,7 @@ import Product from "../models/product.model.js";
 import Category from "../models/category.js";
 
 
+
 // ================================= Create Product =================================
 export const createProduct = async (req, res, next) => {
    try {

@@ -165,10 +165,8 @@ export const updateCartItem = async (req, res, next) => {
 
 
 // =======================================REMOVE ITEM===================================
-
 export const removeFromCart = async (req, res, next) => {
   try {
-
     const { productId } = req.params;
 
     const cart = await Cart.findOne({ user: req.user._id });
@@ -177,9 +175,10 @@ export const removeFromCart = async (req, res, next) => {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    cart.items = cart.items.filter(
-      item => item.product.toString() !== productId
-    );
+    cart.items = cart.items.filter(item => {
+      const id = item.product._id ? item.product._id : item.product;
+      return id.toString() !== productId.toString();
+    });
 
     cart.totalItems = cart.items.reduce(
       (acc, item) => acc + item.quantity,
@@ -203,8 +202,6 @@ export const removeFromCart = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 // ==============================CLEAR CART============================
 

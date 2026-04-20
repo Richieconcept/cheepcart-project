@@ -1,7 +1,9 @@
 import axios from "axios";
+import dotenv from "dotenv";
+dotenv.config();
 
 const REDSTAR_BASE_URL =
-  process.env.REDSTAR_BASE_URL || "http://redspeedopenapi.redstarplc.com";
+  process.env.REDSTAR_BASE_URL || "http://rsmdev.westeurope.cloudapp.azure.com:89";
 
 const REDSTAR_API_KEY = process.env.REDSTAR_API_KEY;
 
@@ -96,11 +98,53 @@ export const calculateRedstarDeliveryFee = async ({
 
     return data;
   } catch (error) {
-    console.log("========== REDSTAR DELIVERY FEE ERROR ==========");
-    console.log("Status:", error.response?.status);
-    console.log("Data:", error.response?.data);
-    console.log("Payload Sent:", payload);
+    // console.log("========== REDSTAR DELIVERY FEE ERROR ==========");
+    // console.log("Status:", error.response?.status);
+    // console.log("Data:", error.response?.data);
+    // console.log("Payload Sent:", payload);
 
     throw error;
   }
+};
+
+
+// ====================== CREATE SHIPMENT ======================
+export const createRedstarShipment = async (payload) => {
+  try {
+    const { data } = await redstar.post(
+      "/api/Operations/PickupRequest",
+      payload
+    );
+
+    return data;
+  } catch (error) {
+    console.log("========== REDSTAR SHIPMENT ERROR ==========");
+    console.log("Status:", error.response?.status);
+    console.log("Data:", error.response?.data);
+    console.log("Payload:", payload);
+
+    throw error;
+  }
+};
+
+
+
+// ================= TRACK SHIPMENT =================
+
+export const trackRedstarShipment = async (trackingNumber) => {
+
+
+  const { data } = await axios.get(
+    `${REDSTAR_BASE_URL}/api/Operations/TrackShipment`,
+    {
+      params: {
+        Waybillno: trackingNumber,
+      },
+      headers: {
+        "X-API-KEY": REDSTAR_API_KEY,
+      },
+    }
+  );
+
+  return data;
 };
