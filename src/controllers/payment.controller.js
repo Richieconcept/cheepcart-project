@@ -9,7 +9,7 @@ import {
 } from "../services/paystack.service.js";
 import { createRedstarShipment } from "../services/redstar.service.js";
 import { buildShipmentPayload } from "./shipment.controller.js";
-import { sendPaymentSuccessEmail, shipmentCreatedTemplate } from "../utils/notifications.js";
+import { sendPaymentSuccessEmail, sendShipmentCreatedEmail } from "../utils/notifications.js";
 
 
 
