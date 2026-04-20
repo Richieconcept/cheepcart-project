@@ -310,19 +310,16 @@ export const handlePaystackWebhook = async (req, res) => {
       const paymentData = event.data;
       const reference = paymentData.reference;
 
-     let order = await Order.findOne({
-  paymentReference: reference,
-});
-
-// 🔥 FORCE fresh data from DB
-order = await Order.findById(order._id);
+      let order = await Order.findOne({
+        paymentReference: reference,
+      });
 
       if (!order) {
-        console.log("❌ Order not found for reference:", reference);
+        console.log("❌ Order not found:", reference);
         return res.sendStatus(200);
       }
 
-      // ✅ PREVENT DOUBLE PROCESSING
+      // prevent duplicate processing
       if (order.paymentStatus === "paid") {
         console.log("⚠️ Order already processed");
         return res.sendStatus(200);
@@ -332,20 +329,6 @@ order = await Order.findById(order._id);
 
       if (paidAmount !== Number(order.pricing.totalAmount)) {
         console.log("❌ Amount mismatch");
-        return res.sendStatus(200);
-      }
-
-      // ================= SAFETY CHECKS =================
-      if (!order.meta) {
-  throw new Error("Missing order.meta in webhook");
-}
-
-if (!order.shippingAddress?.redstarTownId) {
-  throw new Error("Missing redstarTownId in webhook");
-}
-
-      if (!order.shippingAddress?.redstarTownId) {
-        console.log("❌ Missing redstarTownId");
         return res.sendStatus(200);
       }
 
@@ -380,64 +363,80 @@ if (!order.shippingAddress?.redstarTownId) {
       );
 
       // ================= CREATE SHIPMENT =================
-      // ================= CREATE SHIPMENT =================
-try {
-  // 🔥 wait for DB consistency
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const payload = {
+          senderCity: "Asaba",
+          senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
 
-  // 🔥 re-fetch latest order
-  const freshOrder = await Order.findById(order._id);
+          senderName: process.env.SENDER_NAME,
+          senderAddress: process.env.SENDER_ADDRESS,
+          senderPhone: process.env.SENDER_PHONE,
 
-  if (!freshOrder.meta) {
-    throw new Error("Missing order.meta in webhook");
-  }
+          recipientCity: "Asaba",
+          recipientTownID: Number(order.shippingAddress?.redstarTownId),
 
-  if (!freshOrder.shippingAddress?.redstarTownId) {
-    throw new Error("Missing redstarTownId in webhook");
-  }
+          recipientName: order.shippingAddress?.fullName,
+          recipientPhoneNo: order.shippingAddress?.phone,
+          recipientEmail: order.shippingAddress?.email,
+          recipientAddress: order.shippingAddress?.addressLine1,
+          recipientState: order.shippingAddress?.state,
 
-  const payload = buildShipmentPayload(freshOrder);
+          orderNo: order.orderNumber,
 
-  console.log("📦 WEBHOOK PAYLOAD:");
-  console.log(JSON.stringify(payload, null, 2));
+          deliveryType: "Express Delivery",
+          description: "E-commerce order",
 
-  const shipmentResponse = await createRedstarShipment(payload);
+          paymentType: "Prepaid",
 
-  console.log("🚚 REDSTAR RESPONSE:");
-  console.log(JSON.stringify(shipmentResponse, null, 2));
+          // ✅ SAFE VALUES (NO META)
+          pickupType: "Pickup",
+          weight: 1,
+          pieces: order.items?.length || 1,
 
-  if (shipmentResponse?.TransStatus !== "Successful") {
-    console.log("❌ Shipment failed:", shipmentResponse);
-    order.shipmentStatus = "failed";
-  } else {
-    console.log("✅ Shipment created successfully");
+          cashOnDelivery: 0,
+          shipmentItems: [],
+        };
 
-    order.shipmentStatus = "created";
-    order.deliveryStatus = "pending";
-    order.orderStatus = "processing";
+        console.log("📦 WEBHOOK PAYLOAD:");
+        console.log(JSON.stringify(payload, null, 2));
 
-    order.shipmentReference = shipmentResponse?.OrderNo || null;
+        const shipmentResponse = await createRedstarShipment(payload);
 
-    order.trackingNumber =
-      shipmentResponse?.WaybillNumber &&
-      shipmentResponse?.WaybillNumber !== "N/A"
-        ? shipmentResponse.WaybillNumber
-        : null;
+        console.log("🚚 REDSTAR RESPONSE:");
+        console.log(JSON.stringify(shipmentResponse, null, 2));
 
-    order.shipmentCreatedAt = new Date();
-  }
+        if (shipmentResponse?.TransStatus !== "Successful") {
+          console.log("❌ Shipment failed");
+          order.shipmentStatus = "failed";
+        } else {
+          console.log("✅ Shipment created successfully");
 
-  await order.save();
+          order.shipmentStatus = "created";
+          order.deliveryStatus = "pending";
+          order.orderStatus = "processing";
 
-} catch (err) {
-  console.log("🚨 WEBHOOK SHIPMENT ERROR");
-  console.log("Message:", err.message);
-  console.log("Status:", err.response?.status);
-  console.log("Data:", JSON.stringify(err.response?.data, null, 2));
+          order.shipmentReference = shipmentResponse?.OrderNo || null;
 
-  order.shipmentStatus = "failed";
-  await order.save();
-}
+          order.trackingNumber =
+            shipmentResponse?.WaybillNumber &&
+            shipmentResponse?.WaybillNumber !== "N/A"
+              ? shipmentResponse.WaybillNumber
+              : null;
+
+          order.shipmentCreatedAt = new Date();
+        }
+
+        await order.save();
+
+      } catch (err) {
+        console.log("🚨 WEBHOOK SHIPMENT ERROR");
+        console.log("Status:", err.response?.status);
+        console.log("Data:", JSON.stringify(err.response?.data, null, 2));
+        console.log("Message:", err.message);
+
+        order.shipmentStatus = "failed";
+        await order.save();
+      }
     }
 
     return res.sendStatus(200);
