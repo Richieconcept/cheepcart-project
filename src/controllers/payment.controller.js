@@ -1,6 +1,7 @@
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import Cart from "../models/cart.model.js";
+import crypto from "crypto";
 import {
   initializePaystackPayment,
   verifyPaystackPayment,
@@ -272,5 +273,156 @@ export const verifyOrderPayment = async (req, res, next) => {
 
   } catch (error) {
     next(error);
+  }
+};
+
+
+
+// ==============paystck webhook==========================
+
+
+
+export const handlePaystackWebhook = async (req, res) => {
+    console.log("🔥 WEBHOOK HIT"); // ✅ ADD HERE
+
+  try {
+    const secret = process.env.PAYSTACK_SECRET_KEY;
+
+    const hash = crypto
+      .createHmac("sha512", secret)
+      .update(req.body)
+      .digest("hex");
+
+    const signature = req.headers["x-paystack-signature"];
+
+    if (hash !== signature) {
+        console.log("❌ Invalid signature"); // ✅ ADD
+      return res.status(401).send("Invalid signature");
+    }
+
+    console.log("✅ Signature verified"); // ✅ ADD
+
+    const event = JSON.parse(req.body.toString());
+    console.log("📡 Event received:", event.event); // ✅ ADD
+
+    // 🔥 ONLY HANDLE SUCCESS PAYMENT
+    if (event.event === "charge.success") {
+        console.log("💰 Payment success webhook received"); // ✅ ADD
+      const paymentData = event.data;
+      const reference = paymentData.reference;
+
+      const order = await Order.findOne({
+        paymentReference: reference,
+      });
+
+      if (!order) return res.sendStatus(200);
+
+      // ✅ PREVENT DOUBLE PROCESSING
+      if (order.paymentStatus === "paid") {
+        return res.sendStatus(200);
+      }
+
+      const paidAmount = Number(paymentData.amount) / 100;
+
+      if (paidAmount !== Number(order.pricing.totalAmount)) {
+        return res.sendStatus(200);
+      }
+
+      // ================= STOCK VALIDATION =================
+      for (const item of order.items) {
+        const product = await Product.findById(item.productId);
+
+        if (!product || !product.isActive || product.stock < item.quantity) {
+          return res.sendStatus(200);
+        }
+      }
+
+      // ================= DEDUCT STOCK =================
+      for (const item of order.items) {
+        const product = await Product.findById(item.productId);
+        product.stock -= item.quantity;
+        await product.save();
+      }
+
+      // ================= UPDATE ORDER =================
+      order.paymentStatus = "paid";
+      order.paidAt = new Date();
+      order.orderStatus = "confirmed";
+
+      await order.save();
+
+      // ================= CLEAR CART =================
+      await Cart.findOneAndUpdate(
+        { user: order.user },
+        { items: [], totalItems: 0, totalPrice: 0 }
+      );
+
+      // ================= CREATE SHIPMENT =================
+      try {
+        const payload = {
+          senderCity: "Asaba",
+          senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
+
+          senderName: "CHEEPCART",
+          senderPhone: "08000000000",
+          senderAddress: process.env.SENDER_ADDRESS,
+
+          recipientCity: "Asaba",
+          recipientTownID: Number(order.shippingAddress.redstarTownId),
+
+          recipientName: order.shippingAddress.fullName,
+          recipientPhoneNo: order.shippingAddress.phone,
+          recipientEmail: order.shippingAddress.email,
+          recipientAddress: order.shippingAddress.addressLine1,
+          recipientState: order.shippingAddress.state,
+
+          orderNo: order.orderNumber,
+
+          deliveryType: "Express Delivery",
+          description: "E-commerce order",
+
+          paymentType: "Prepaid",
+          pickupType: order.meta.pickupType,
+
+          weight: order.meta.totalWeight,
+          pieces: order.meta.totalItems,
+
+          cashOnDelivery: 0,
+          shipmentItems: [],
+        };
+
+        const shipmentResponse = await createRedstarShipment(payload);
+
+        if (shipmentResponse?.TransStatus !== "Successful") {
+          order.shipmentStatus = "failed";
+        } else {
+          order.shipmentStatus = "created";
+
+          // ✅ IMPORTANT SYNC
+          order.deliveryStatus = "pending";
+          order.orderStatus = "processing";
+
+          order.shipmentReference = shipmentResponse?.OrderNo || null;
+
+          order.trackingNumber =
+            shipmentResponse?.WaybillNumber &&
+            shipmentResponse?.WaybillNumber !== "N/A"
+              ? shipmentResponse.WaybillNumber
+              : null;
+
+          order.shipmentCreatedAt = new Date();
+        }
+
+        await order.save();
+      } catch (err) {
+        order.shipmentStatus = "failed";
+        await order.save();
+      }
+    }
+
+    return res.sendStatus(200);
+  } catch (error) {
+    console.log("WEBHOOK ERROR:", error.message);
+    return res.sendStatus(200);
   }
 };
