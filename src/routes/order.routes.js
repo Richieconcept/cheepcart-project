@@ -7,8 +7,11 @@ import {
   getSingleOrder,
   cancelPendingOrder,
   deleteCanceledOrder,
+  getAllOrdersAdmin ,
 } from "../controllers/order.controller.js";
 import { protect } from "../middlewares/authMiddleware.js";
+import { adminOnly } from "../middlewares/adminMiddleware.js";
+
 
 const router = express.Router();
 
@@ -18,6 +21,7 @@ router.get("/my-orders", protect, getMyOrders);
 router.get("/:id", protect, getSingleOrder);
 router.delete("/:orderId/cancel", protect, cancelPendingOrder);  
 router.delete("/:orderId", protect, deleteCanceledOrder);
+router.get("/admin/all", protect, adminOnly, getAllOrdersAdmin);
 
 
 export default router;

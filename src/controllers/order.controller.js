@@ -397,3 +397,64 @@ export const deleteCanceledOrder = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+// ========================== ADMIN: GET ALL ORDERS ==========================
+export const getAllOrdersAdmin = async (req, res, next) => {
+  try {
+    const {
+      paymentStatus,
+      shipmentStatus,
+      orderStatus,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const filter = {};
+
+    if (paymentStatus) filter.paymentStatus = paymentStatus;
+    if (shipmentStatus) filter.shipmentStatus = shipmentStatus;
+    if (orderStatus) filter.orderStatus = orderStatus;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const orders = await Order.find(filter)
+      .populate("user", "name email phone") // 🔥 IMPORTANT
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Order.countDocuments(filter);
+
+    return res.status(200).json({
+      success: true,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / limit),
+      orders: orders.map((order) => ({
+        id: order._id,
+        orderNumber: order.orderNumber,
+
+        customer: {
+          name: order.user?.name,
+          email: order.customerEmail,
+          phone: order.user?.phone,
+        },
+
+        paymentStatus: order.paymentStatus,
+        shipmentStatus: order.shipmentStatus,
+        deliveryStatus: order.deliveryStatus,
+        orderStatus: order.orderStatus,
+
+        totalAmount: order.pricing.totalAmount,
+
+        trackingNumber: order.trackingNumber || null,
+
+        createdAt: order.createdAt,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
