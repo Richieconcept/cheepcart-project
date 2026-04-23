@@ -43,7 +43,8 @@ startShipmentSyncJob();
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://cheepcart-project.onrender.com"
+  "https://cheepcart-project.onrender.com",
+  "https://cheepcart.vercel.app/"
 ];
 
 const corsOptions = {
@@ -67,7 +68,8 @@ const corsOptions = {
 // app.use(cors({
 //   origin: [
 //     "http://localhost:5173",
-//     "https://cheepcart-api-documentation.vercel.app/"
+//     "https://cheepcart-api-documentation.vercel.app/",
+""
 //   ],
 //   credentials: true
 // }));
@@ -75,7 +77,8 @@ const corsOptions = {
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://cheepcart-api-documentation.vercel.app"
+    "https://cheepcart-api-documentation.vercel.app",
+    "https://cheepcart.vercel.app/"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
