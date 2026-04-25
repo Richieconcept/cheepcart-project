@@ -18,6 +18,11 @@ import shippingRoutes from "./routes/shipping.route.js";
 import orderRoutes from "./routes/order.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import shipmentRoutes from "./routes/shipment.routes.js";
+import bannerRoutes from "./routes/banner.routes.js";
+import sideBannerRoutes from "./routes/sideBanner.routes.js";
+import preOrderProductRoutes from "./routes/preOrderProduct.routes.js";
+import preOrderEnquiryRoutes from "./routes/preOrderEnquiry.routes.js";
+
 
 
 
@@ -126,6 +131,10 @@ app.use("/api/shipping", shippingRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/shipments", shipmentRoutes);
+app.use("/api/banners", bannerRoutes);  
+app.use("/api/side-banners", sideBannerRoutes);
+app.use("/api/pre-order-products", preOrderProductRoutes);
+app.use("/api/pre-order-enquiries", preOrderEnquiryRoutes);
 
 // cart route
 app.use("/api/cart", cartRoutes);
