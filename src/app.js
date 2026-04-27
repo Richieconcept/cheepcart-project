@@ -46,17 +46,27 @@ startShipmentSyncJob();
 
 // ============ CORS config =======================================
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
   "http://localhost:5173",
   "https://cheepcart-project.onrender.com",
-  "https://cheepcart.vercel.app/"
-];
+  "https://cheepcart-api-documentation.vercel.app",
+  "https://cheepcart.vercel.app",
+  "https://cheepcart-15o1.vercel.app",
+]);
+
+const normalizeOrigin = (origin) => {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin;
+  }
+};
 
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.has(normalizeOrigin(origin))) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -68,26 +78,7 @@ const corsOptions = {
 };
 
 // Apply CORS to all routes
-// app.use(cors(corsOptions));
-
-// app.use(cors({
-//   origin: [
-//     "http://localhost:5173",
-//     "https://cheepcart-api-documentation.vercel.app/",
-""
-//   ],
-//   credentials: true
-// }));
-
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://cheepcart-api-documentation.vercel.app",
-    "https://cheepcart.vercel.app/"
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
-}));
+app.use(cors(corsOptions));
 
 
 
