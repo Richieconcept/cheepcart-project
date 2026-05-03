@@ -1,9 +1,17 @@
 import PreOrderProduct from "../models/preOrderProduct.model.js";
+import {
+  deletePreOrderImage,
+  normalizePreOrderImage,
+  uploadPreOrderImage
+} from "../services/preOrderProduct.service.js";
 
 // ============================ Create Pre-order Product (Admin) ============================
 export const createPreOrderProduct = async (req, res, next) => {
   try {
-    const { name, description, price, image, status, displayOrder, isActive } = req.body;
+    const { name, description, price, status, displayOrder, isActive } = req.body;
+    const image = req.file
+      ? await uploadPreOrderImage(req.file)
+      : normalizePreOrderImage(req.body.image);
 
     if (!name) {
       return res.status(400).json({ message: "Product name is required" });
@@ -129,7 +137,25 @@ export const updatePreOrderProduct = async (req, res, next) => {
       return res.status(404).json({ message: "Pre-order product not found" });
     }
 
-    Object.assign(product, req.body);
+    const { image, ...updates } = req.body;
+    Object.assign(product, updates);
+
+    if (req.file) {
+      const oldPublicId = product.image?.public_id;
+      product.image = await uploadPreOrderImage(req.file);
+      await deletePreOrderImage(oldPublicId);
+    } else if (image !== undefined) {
+      const normalizedImage = normalizePreOrderImage(image);
+
+      if (!normalizedImage?.secure_url || !normalizedImage?.public_id) {
+        return res.status(400).json({
+          message: "Product image with secure_url and public_id is required"
+        });
+      }
+
+      product.image = normalizedImage;
+    }
+
     await product.save();
 
     res.status(200).json({
