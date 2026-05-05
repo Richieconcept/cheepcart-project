@@ -10,6 +10,11 @@ const paystackClient = axios.create({
   },
 });
 
+const cleanQuery = (query = {}) =>
+  Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined && value !== null && value !== "")
+  );
+
 // ========================== INITIALIZE PAYSTACK PAYMENT ==========================
 export const initializePaystackPayment = async ({
   email,
@@ -32,5 +37,29 @@ export const initializePaystackPayment = async ({
 // ========================== VERIFY PAYSTACK PAYMENT ==========================
 export const verifyPaystackPayment = async (reference) => {
   const response = await paystackClient.get(`/transaction/verify/${reference}`);
+  return response.data;
+};
+
+// ========================== FETCH PAYSTACK BALANCE ==========================
+export const fetchPaystackBalance = async () => {
+  const response = await paystackClient.get("/balance");
+  return response.data;
+};
+
+// ========================== LIST PAYSTACK TRANSACTIONS ==========================
+export const listPaystackTransactions = async (query = {}) => {
+  const response = await paystackClient.get("/transaction", {
+    params: cleanQuery(query),
+  });
+
+  return response.data;
+};
+
+// ========================== FETCH PAYSTACK TRANSACTION TOTALS ==========================
+export const fetchPaystackTransactionTotals = async (query = {}) => {
+  const response = await paystackClient.get("/transaction/totals", {
+    params: cleanQuery(query),
+  });
+
   return response.data;
 };

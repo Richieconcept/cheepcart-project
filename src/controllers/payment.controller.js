@@ -6,10 +6,98 @@ import crypto from "crypto";
 import {
   initializePaystackPayment,
   verifyPaystackPayment,
+  fetchPaystackBalance,
+  listPaystackTransactions,
+  fetchPaystackTransactionTotals,
 } from "../services/paystack.service.js";
 import { createRedstarShipment } from "../services/redstar.service.js";
 import { buildShipmentPayload } from "./shipment.controller.js";
 import { sendPaymentSuccessEmail, sendShipmentCreatedEmail } from "../utils/notifications.js";
+
+const toMoney = (amount, currency = "NGN") => {
+  const minorAmount = Number(amount || 0);
+  const value = minorAmount / 100;
+  const currencyCode = /^[A-Z]{3}$/.test(String(currency || "")) ? currency : "NGN";
+
+  return {
+    minorAmount,
+    amount: value,
+    formatted: new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: currencyCode,
+    }).format(value),
+  };
+};
+
+const mapPaystackBalance = (balance) => {
+  const money = toMoney(balance.balance, balance.currency);
+
+  return {
+    currency: balance.currency,
+    balanceMinor: money.minorAmount,
+    balance: money.amount,
+    formattedBalance: money.formatted,
+  };
+};
+
+const getMetadataValue = (metadata, key) => {
+  if (!metadata || typeof metadata !== "object") return null;
+
+  if (metadata[key]) return metadata[key];
+
+  const customFields = Array.isArray(metadata.custom_fields)
+    ? metadata.custom_fields
+    : [];
+
+  const field = customFields.find((item) => item.variable_name === key);
+  return field?.value || null;
+};
+
+const mapPaystackTransaction = (transaction) => {
+  const currency = transaction.currency || "NGN";
+  const amount = toMoney(transaction.amount, currency);
+  const fees = toMoney(transaction.fees, currency);
+
+  return {
+    id: transaction.id != null ? String(transaction.id) : null,
+    reference: transaction.reference,
+    status: transaction.status,
+    gatewayResponse: transaction.gateway_response,
+    amountMinor: amount.minorAmount,
+    amount: amount.amount,
+    formattedAmount: amount.formatted,
+    feesMinor: fees.minorAmount,
+    fees: fees.amount,
+    formattedFees: fees.formatted,
+    currency,
+    channel: transaction.channel,
+    paidAt: transaction.paid_at || transaction.paidAt || null,
+    createdAt: transaction.created_at || transaction.createdAt || null,
+    customer: {
+      email: transaction.customer?.email || null,
+      firstName: transaction.customer?.first_name || null,
+      lastName: transaction.customer?.last_name || null,
+      customerCode: transaction.customer?.customer_code || null,
+    },
+    order: {
+      orderId: getMetadataValue(transaction.metadata, "orderId"),
+      orderNumber: getMetadataValue(transaction.metadata, "orderNumber") ||
+        getMetadataValue(transaction.metadata, "order_number"),
+    },
+  };
+};
+
+const mapCurrencyAmounts = (items = [], amountKey = "amount") =>
+  items.map((item) => {
+    const money = toMoney(item[amountKey], item.currency);
+
+    return {
+      currency: item.currency,
+      amountMinor: money.minorAmount,
+      amount: money.amount,
+      formattedAmount: money.formatted,
+    };
+  });
 
 
 
@@ -297,6 +385,94 @@ export const verifyOrderPayment = async (req, res, next) => {
 
   } catch (error) {
     next(error);
+  }
+};
+
+
+// ========================== ADMIN PAYSTACK DASHBOARD ==========================
+export const getPaystackAdminWallet = async (req, res, next) => {
+  try {
+    const {
+      page = 1,
+      perPage = 20,
+      status,
+      from,
+      to,
+      customer,
+      currency,
+    } = req.query;
+
+    const safePerPage = Math.min(Math.max(Number(perPage) || 20, 1), 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+
+    const transactionQuery = {
+      page: safePage,
+      perPage: safePerPage,
+      status,
+      from,
+      to,
+      customer,
+      currency,
+    };
+
+    const totalsQuery = {
+      page: safePage,
+      perPage: safePerPage,
+      from,
+      to,
+    };
+
+    const [balanceResponse, transactionsResponse, totalsResponse] = await Promise.all([
+      fetchPaystackBalance(),
+      listPaystackTransactions(transactionQuery),
+      fetchPaystackTransactionTotals(totalsQuery),
+    ]);
+
+    const balances = (balanceResponse?.data || []).map(mapPaystackBalance);
+    const primaryBalance =
+      balances.find((balance) => balance.currency === (currency || "NGN")) ||
+      balances[0] ||
+      null;
+
+    const totals = totalsResponse?.data || {};
+    const totalVolume = toMoney(totals.total_volume, currency || "NGN");
+    const pendingTransfers = toMoney(totals.pending_transfers, currency || "NGN");
+
+    return res.status(200).json({
+      success: true,
+      wallet: {
+        balances,
+        primaryBalance,
+      },
+      transactions: {
+        page: safePage,
+        perPage: safePerPage,
+        meta: transactionsResponse?.meta || null,
+        data: (transactionsResponse?.data || []).map(mapPaystackTransaction),
+      },
+      totals: {
+        totalTransactions: totals.total_transactions || 0,
+        totalVolumeMinor: totalVolume.minorAmount,
+        totalVolume: totalVolume.amount,
+        formattedTotalVolume: totalVolume.formatted,
+        totalVolumeByCurrency: mapCurrencyAmounts(totals.total_volume_by_currency),
+        pendingTransfersMinor: pendingTransfers.minorAmount,
+        pendingTransfers: pendingTransfers.amount,
+        formattedPendingTransfers: pendingTransfers.formatted,
+        pendingTransfersByCurrency: mapCurrencyAmounts(totals.pending_transfers_by_currency),
+      },
+    });
+  } catch (error) {
+    const statusCode = error.response?.status || 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      message:
+        error.response?.data?.message ||
+        error.response?.data ||
+        error.message ||
+        "Failed to fetch Paystack wallet data",
+    });
   }
 };
 

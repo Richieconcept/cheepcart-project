@@ -165,9 +165,9 @@ export const createShipment = async (req, res, next) => {
 
 // ===================Track Shipment ====================================
 export const trackShipment = async (req, res) => {
-  try {
-    const { trackingNumber } = req.params;
+  const { trackingNumber } = req.params;
 
+  try {
     if (!trackingNumber) {
       return res.status(400).json({
         success: false,
