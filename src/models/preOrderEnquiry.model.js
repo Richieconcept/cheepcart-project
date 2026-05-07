@@ -8,7 +8,13 @@ const productSnapshotSchema = new mongoose.Schema(
     image: {
       secure_url: String,
       public_id: String
-    }
+    },
+    images: [
+      {
+        secure_url: String,
+        public_id: String
+      }
+    ]
   },
   { _id: false }
 );

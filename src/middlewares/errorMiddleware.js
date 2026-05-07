@@ -13,7 +13,15 @@ export const errorHandler = (err, req, res, next) => {
   if (err.code === "LIMIT_FILE_SIZE") {
     statusCode = 400;
     message =
-      "Image too large. Maximum allowed size is 2MB. Please reduce the file size.";
+      "Image too large. Maximum allowed size is 5MB. Please reduce the file size.";
+  }
+
+  // ================= Multer Unexpected File Error =================
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
+    statusCode = 400;
+    message = ["image", "images"].includes(err.field)
+      ? "You can upload up to 4 pre-order product images."
+      : `Unexpected file field${err.field ? `: ${err.field}` : ""}.`;
   }
 
   // ================= Multer File Type Error =================

@@ -39,8 +39,21 @@ const preOrderProductSchema = new mongoose.Schema(
     },
 
     image: {
-      type: preOrderImageSchema,
-      required: true
+      type: preOrderImageSchema
+    },
+
+    images: {
+      type: [preOrderImageSchema],
+      validate: [
+        {
+          validator: images => Array.isArray(images) && images.length > 0,
+          message: "At least one pre-order product image is required"
+        },
+        {
+          validator: images => !images || images.length <= 4,
+          message: "Pre-order product can have at most 4 images"
+        }
+      ]
     },
 
     status: {
@@ -61,6 +74,16 @@ const preOrderProductSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+preOrderProductSchema.pre("validate", function () {
+  if ((!this.images || this.images.length === 0) && this.image) {
+    this.images = [this.image];
+  }
+
+  if (this.images?.length) {
+    this.image = this.images[0];
+  }
+});
 
 preOrderProductSchema.pre("save", async function () {
   if (!this.isModified("name")) return;

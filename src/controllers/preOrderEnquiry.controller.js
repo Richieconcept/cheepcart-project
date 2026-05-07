@@ -37,13 +37,20 @@ export const createPreOrderEnquiry = async (req, res, next) => {
       });
     }
 
+    const productImages = product.images?.length
+      ? product.images
+      : product.image
+        ? [product.image]
+        : [];
+
     const enquiry = await PreOrderEnquiry.create({
       product: product._id,
       productSnapshot: {
         name: product.name,
         slug: product.slug,
         price: product.price,
-        image: product.image
+        image: productImages[0],
+        images: productImages
       },
       fullName,
       phone,
@@ -80,7 +87,7 @@ export const getPreOrderEnquiries = async (req, res, next) => {
     }
 
     const enquiries = await PreOrderEnquiry.find(filter)
-      .populate("product", "name slug price image status isActive")
+      .populate("product", "name slug price image images status isActive")
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
@@ -102,7 +109,7 @@ export const getPreOrderEnquiries = async (req, res, next) => {
 export const getSinglePreOrderEnquiry = async (req, res, next) => {
   try {
     const enquiry = await PreOrderEnquiry.findById(req.params.id)
-      .populate("product", "name slug price image status isActive");
+      .populate("product", "name slug price image images status isActive");
 
     if (!enquiry) {
       return res.status(404).json({ message: "Pre-order enquiry not found" });

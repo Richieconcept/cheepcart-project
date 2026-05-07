@@ -1,33 +1,80 @@
 import PreOrderProduct from "../models/preOrderProduct.model.js";
 import {
-  deletePreOrderImage,
-  normalizePreOrderImage,
-  uploadPreOrderImage
+  deletePreOrderImages,
+  normalizePreOrderImages,
+  uploadPreOrderImages
 } from "../services/preOrderProduct.service.js";
+
+const MAX_PRE_ORDER_IMAGES = 4;
+
+const getUploadedPreOrderImages = req => {
+  if (!req.files) return [];
+
+  if (Array.isArray(req.files)) {
+    return req.files;
+  }
+
+  return [
+    ...(req.files.images || []),
+    ...(req.files.image || [])
+  ];
+};
+
+const getStoredPreOrderImages = product => {
+  if (product.images?.length) return product.images;
+  if (product.image) return [product.image];
+  return [];
+};
+
+const validatePreOrderImages = images => {
+  if (!Array.isArray(images) || images.length === 0) {
+    return "At least one product image with secure_url and public_id is required";
+  }
+
+  if (images.length > MAX_PRE_ORDER_IMAGES) {
+    return "You can upload up to 4 pre-order product images";
+  }
+
+  if (images.some(image => !image?.secure_url || !image?.public_id)) {
+    return "Each product image must include secure_url and public_id";
+  }
+
+  return null;
+};
 
 // ============================ Create Pre-order Product (Admin) ============================
 export const createPreOrderProduct = async (req, res, next) => {
   try {
     const { name, description, price, status, displayOrder, isActive } = req.body;
-    const image = req.file
-      ? await uploadPreOrderImage(req.file)
-      : normalizePreOrderImage(req.body.image);
 
     if (!name) {
       return res.status(400).json({ message: "Product name is required" });
     }
 
-    if (!image?.secure_url || !image?.public_id) {
+    const uploadedImages = getUploadedPreOrderImages(req);
+
+    if (uploadedImages.length > MAX_PRE_ORDER_IMAGES) {
       return res.status(400).json({
-        message: "Product image with secure_url and public_id is required"
+        message: "You can upload up to 4 pre-order product images"
       });
+    }
+
+    const images = uploadedImages.length
+      ? await uploadPreOrderImages(uploadedImages)
+      : normalizePreOrderImages(req.body.images ?? req.body.image);
+
+    const imageError = validatePreOrderImages(images);
+
+    if (imageError) {
+      return res.status(400).json({ message: imageError });
     }
 
     const product = await PreOrderProduct.create({
       name,
       description,
       price,
-      image,
+      image: images[0],
+      images,
       status,
       displayOrder,
       isActive
@@ -137,26 +184,42 @@ export const updatePreOrderProduct = async (req, res, next) => {
       return res.status(404).json({ message: "Pre-order product not found" });
     }
 
-    const { image, ...updates } = req.body;
+    const { image, images, ...updates } = req.body;
     Object.assign(product, updates);
 
-    if (req.file) {
-      const oldPublicId = product.image?.public_id;
-      product.image = await uploadPreOrderImage(req.file);
-      await deletePreOrderImage(oldPublicId);
-    } else if (image !== undefined) {
-      const normalizedImage = normalizePreOrderImage(image);
+    const uploadedImages = getUploadedPreOrderImages(req);
+    let oldImagesToDelete = [];
 
-      if (!normalizedImage?.secure_url || !normalizedImage?.public_id) {
-        return res.status(400).json({
-          message: "Product image with secure_url and public_id is required"
-        });
+    if (uploadedImages.length > MAX_PRE_ORDER_IMAGES) {
+      return res.status(400).json({
+        message: "You can upload up to 4 pre-order product images"
+      });
+    }
+
+    if (uploadedImages.length) {
+      oldImagesToDelete = getStoredPreOrderImages(product);
+      const nextImages = await uploadPreOrderImages(uploadedImages);
+      product.images = nextImages;
+      product.image = nextImages[0];
+    } else if (images !== undefined || image !== undefined) {
+      const normalizedImages = normalizePreOrderImages(images ?? image);
+      const imageError = validatePreOrderImages(normalizedImages);
+
+      if (imageError) {
+        return res.status(400).json({ message: imageError });
       }
 
-      product.image = normalizedImage;
+      product.images = normalizedImages;
+      product.image = normalizedImages[0];
     }
 
     await product.save();
+
+    if (oldImagesToDelete.length) {
+      deletePreOrderImages(oldImagesToDelete).catch(error => {
+        console.error("Failed to delete old pre-order product images", error);
+      });
+    }
 
     res.status(200).json({
       message: "Pre-order product updated successfully",

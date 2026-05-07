@@ -32,9 +32,21 @@ export const uploadPreOrderImage = async file => {
   };
 };
 
+export const uploadPreOrderImages = async files => {
+  return Promise.all((files || []).map(file => uploadPreOrderImage(file)));
+};
+
 export const deletePreOrderImage = async publicId => {
   if (!publicId) return;
   await cloudinary.uploader.destroy(publicId);
+};
+
+export const deletePreOrderImages = async images => {
+  const publicIds = (images || [])
+    .map(image => (typeof image === "string" ? image : image?.public_id))
+    .filter(Boolean);
+
+  await Promise.all(publicIds.map(publicId => deletePreOrderImage(publicId)));
 };
 
 export const normalizePreOrderImage = image => {
@@ -49,4 +61,19 @@ export const normalizePreOrderImage = image => {
   }
 
   return image;
+};
+
+export const normalizePreOrderImages = images => {
+  if (!images) return undefined;
+
+  if (typeof images === "string") {
+    try {
+      const parsedImages = JSON.parse(images);
+      return Array.isArray(parsedImages) ? parsedImages : [parsedImages];
+    } catch {
+      return undefined;
+    }
+  }
+
+  return Array.isArray(images) ? images : [images];
 };
