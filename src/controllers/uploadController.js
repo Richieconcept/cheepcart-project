@@ -23,6 +23,26 @@ const streamUpload = (buffer, folder) => {
   });
 };
 
+const normalizePublicIds = value => {
+  if (!value) return [];
+
+  if (typeof value === "string") {
+    try {
+      return normalizePublicIds(JSON.parse(value));
+    } catch {
+      return value ? [value] : [];
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => (typeof item === "string" ? item : item?.public_id))
+      .filter(Boolean);
+  }
+
+  return value.public_id ? [value.public_id] : [];
+};
+
 // ✅ Upload multiple images
 export const uploadImages = async (req, res, next) => {
   try {
@@ -40,10 +60,10 @@ export const uploadImages = async (req, res, next) => {
       req.files.map(file => streamUpload(file.buffer, folder))
     );
 
-  const images = results.map(item => ({
-  secure_url: item.secure_url,
-  public_id: item.public_id
-  }));
+    const images = results.map(item => ({
+      secure_url: item.secure_url,
+      public_id: item.public_id
+    }));
 
     res.status(200).json({
       success: true,
@@ -60,11 +80,12 @@ export const uploadImages = async (req, res, next) => {
 export const updateImages = async (req, res, next) => {
   try {
     const { oldImages } = req.body;
+    const oldPublicIds = normalizePublicIds(oldImages);
 
     // delete old images
-    if (oldImages && oldImages.length > 0) {
+    if (oldPublicIds.length > 0) {
       await Promise.all(
-        oldImages.map(id => cloudinary.uploader.destroy(id))
+        oldPublicIds.map(id => cloudinary.uploader.destroy(id))
       );
     }
 
@@ -75,14 +96,15 @@ export const updateImages = async (req, res, next) => {
       });
     }
 
+    const folderType = req.body.type || "products";
+    const folder = `cheepcart/${folderType}`;
+
     const results = await Promise.all(
-      req.files.map(file =>
-        streamUpload(file.buffer, "cheepcart/products")
-      )
+      req.files.map(file => streamUpload(file.buffer, folder))
     );
 
     const images = results.map(item => ({
-      url: item.secure_url,
+      secure_url: item.secure_url,
       public_id: item.public_id
     }));
 
