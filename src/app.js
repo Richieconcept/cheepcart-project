@@ -52,6 +52,7 @@ const allowedOrigins = new Set([
   "https://cheepcart-api-documentation.vercel.app",
   "https://cheepcart.vercel.app",
   "https://cheepcart-15o1.vercel.app",
+  "https://cheepcarts.com",
 ]);
 
 const normalizeOrigin = (origin) => {
