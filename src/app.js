@@ -52,7 +52,8 @@ const allowedOrigins = new Set([
   "https://cheepcart-api-documentation.vercel.app",
   "https://cheepcart.vercel.app",
   "https://cheepcart-15o1.vercel.app",
-  "https://www.cheepcarts.com/",
+  "https://cheepcarts.com",
+  "https://www.cheepcarts.com",
 ]);
 
 const normalizeOrigin = (origin) => {
@@ -74,7 +75,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
