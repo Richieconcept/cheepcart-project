@@ -1,6 +1,53 @@
 import Product from "../models/product.model.js";
 import Category from "../models/category.js";
 
+const buildProductFilter = (query) => {
+   const filter = { isActive: true };
+
+   // Category filter
+   if (query.category) {
+      filter.category = query.category;
+   }
+
+   // Featured filter
+   if (query.featured === "true") {
+      filter.isFeatured = true;
+   }
+
+   // Search by name OR description
+   if (query.keyword) {
+      filter.$or = [
+         { name: { $regex: query.keyword, $options: "i" } },
+         { description: { $regex: query.keyword, $options: "i" } }
+      ];
+   }
+
+   // Price range filter
+   if (query.min || query.max) {
+      filter.price = {};
+      if (query.min) filter.price.$gte = Number(query.min);
+      if (query.max) filter.price.$lte = Number(query.max);
+   }
+
+   return filter;
+};
+
+const buildProductSort = (query) => {
+   if (query.sort === "price_asc") {
+      return { price: 1 };
+   }
+
+   if (query.sort === "price_desc") {
+      return { price: -1 };
+   }
+
+   if (query.sort === "best_selling") {
+      return { sold: -1 };
+   }
+
+   return { isFeatured: -1, createdAt: -1 };
+};
+
 
 
 // ================================= Create Product =================================
@@ -58,48 +105,8 @@ export const getProducts = async (req, res, next) => {
       const page = Number(req.query.page) || 1;
       const limit = 10;
       const skip = (page - 1) * limit;
-
-      const filter = { isActive: true };
-
-      // Category filter
-      if (req.query.category) {
-         filter.category = req.query.category;
-      }
-
-      // Featured filter
-      if (req.query.featured === "true") {
-         filter.isFeatured = true;
-      }
-
-      // Search by name OR description
-      if (req.query.keyword) {
-         filter.$or = [
-            { name: { $regex: req.query.keyword, $options: "i" } },
-            { description: { $regex: req.query.keyword, $options: "i" } }
-         ];
-      }
-
-      // Price range filter
-      if (req.query.min || req.query.max) {
-         filter.price = {};
-         if (req.query.min) filter.price.$gte = Number(req.query.min);
-         if (req.query.max) filter.price.$lte = Number(req.query.max);
-      }
-
-      // Sorting
-      let sortOption = { isFeatured: -1, createdAt: -1 };
-
-      if (req.query.sort === "price_asc") {
-         sortOption = { price: 1 };
-      }
-
-      if (req.query.sort === "price_desc") {
-         sortOption = { price: -1 };
-      }
-
-      if (req.query.sort === "best_selling") {
-         sortOption = { sold: -1 };
-      }
+      const filter = buildProductFilter(req.query);
+      const sortOption = buildProductSort(req.query);
 
       const products = await Product.find(filter)
          .populate("category", "name slug")
@@ -113,6 +120,28 @@ export const getProducts = async (req, res, next) => {
          total,
          page,
          pages: Math.ceil(total / limit),
+         products
+      });
+
+   } catch (error) {
+      next(error);
+   }
+};
+
+
+// ============================ Get All Products Without Pagination (Public) ============================
+export const getAllProducts = async (req, res, next) => {
+   try {
+
+      const filter = buildProductFilter(req.query);
+      const sortOption = buildProductSort(req.query);
+
+      const products = await Product.find(filter)
+         .populate("category", "name slug")
+         .sort(sortOption);
+
+      res.status(200).json({
+         total: products.length,
          products
       });
 

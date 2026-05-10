@@ -1,6 +1,7 @@
 import express from "express";
 import {
    createProduct,
+   getAllProducts,
    getProducts,
    getSingleProduct,
    updateProduct,
@@ -13,6 +14,7 @@ import { adminOnly } from "../middlewares/adminMiddleware.js";
 const router = express.Router();
 
 // Public
+router.get("/all", getAllProducts);
 router.get("/", getProducts);
 router.get("/:slug", getSingleProduct);
 
