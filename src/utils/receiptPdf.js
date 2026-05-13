@@ -101,7 +101,8 @@ const addLabelValue = (page, label, value, x, y, valueWidth = 170) => {
 
 const buildObjects = (pages) => {
   const pageCount = pages.length;
-  const contentStartId = 4 + pageCount;
+  const fontStartId = 3 + pageCount;
+  const contentStartId = fontStartId + 2;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     `<< /Type /Pages /Kids ${pages.map((_, index) => `${3 + index} 0 R`).join(" ")} /Count ${pageCount} >>`,
@@ -109,7 +110,7 @@ const buildObjects = (pages) => {
 
   pages.forEach((_, index) => {
     objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${3 + pageCount} 0 R /F2 ${4 + pageCount} 0 R >> >> /Contents ${contentStartId + index} 0 R >>`
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 ${fontStartId} 0 R /F2 ${fontStartId + 1} 0 R >> >> /Contents ${contentStartId + index} 0 R >>`
     );
   });
 
