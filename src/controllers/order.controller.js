@@ -209,12 +209,16 @@ export const createOrder = async (req, res, next) => {
 
         if (
           freshOrder &&
-          freshOrder.paymentStatus === "unpaid" &&
-          freshOrder.orderStatus === "pending"
+          ["unpaid", "pending"].includes(freshOrder.paymentStatus) &&
+          freshOrder.orderStatus === "pending" &&
+          !freshOrder.abandonedEmailSent
         ) {
           console.log("📩 Sending abandoned order email");
 
           await sendAbandonedOrderEmail(freshOrder, req.user);
+          freshOrder.abandonedEmailSent = true;
+          freshOrder.abandonedEmailSentAt = new Date();
+          await freshOrder.save();
         }
       } catch (err) {
         console.log("❌ Abandoned email error:", err.message);

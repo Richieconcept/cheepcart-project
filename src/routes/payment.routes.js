@@ -2,6 +2,8 @@ import express from "express";
 import {
   initializeOrderPayment,
   verifyOrderPayment,
+  syncOrderPayment,
+  handlePaystackCallback,
   getPaystackAdminWallet,
   handlePaystackWebhook, // ✅ NEW
 } from "../controllers/payment.controller.js";
@@ -13,6 +15,8 @@ const router = express.Router();
 // 🔐 USER FLOW
 router.post("/initialize/:orderId", protect, initializeOrderPayment);
 router.get("/verify/:reference", protect, verifyOrderPayment);
+router.get("/sync/:reference", syncOrderPayment);
+router.get("/callback", handlePaystackCallback);
 
 // ADMIN DASHBOARD
 router.get("/admin/paystack-wallet", protect, adminOnly, getPaystackAdminWallet);

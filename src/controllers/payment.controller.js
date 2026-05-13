@@ -99,6 +99,165 @@ const mapCurrencyAmounts = (items = [], amountKey = "amount") =>
     };
   });
 
+const getPaymentCallbackUrl = () => {
+  if (process.env.PAYSTACK_CALLBACK_URL) return process.env.PAYSTACK_CALLBACK_URL;
+  if (!process.env.FRONTEND_URL) return undefined;
+
+  return `${process.env.FRONTEND_URL.replace(/\/$/, "")}/dashboard`;
+};
+
+const getOrderIdFromPaymentData = (paymentData) =>
+  getMetadataValue(paymentData?.metadata, "orderId") ||
+  getMetadataValue(paymentData?.metadata, "order_id");
+
+const findOrderForPayment = async (paymentData, userId = null) => {
+  const orderId = getOrderIdFromPaymentData(paymentData);
+  const reference = paymentData?.reference;
+  const query = orderId ? { _id: orderId } : { paymentReference: reference };
+
+  if (userId) query.user = userId;
+
+  return Order.findOne(query);
+};
+
+const sendPaymentEmailSafely = async (order, user) => {
+  try {
+    const emailUser = user || (await User.findById(order.user));
+
+    if (!emailUser) {
+      console.log("Payment email skipped: user not found");
+      return;
+    }
+
+    await sendPaymentSuccessEmail(order, emailUser);
+    console.log("Payment success email sent");
+  } catch (err) {
+    console.log("Payment email error:", err.message);
+  }
+};
+
+const sendShipmentEmailSafely = async (order) => {
+  try {
+    const user = await User.findById(order.user);
+
+    if (!user) {
+      console.log("Shipment email skipped: user not found");
+      return;
+    }
+
+    await sendShipmentCreatedEmail(order, user);
+    console.log("Shipment email sent");
+  } catch (err) {
+    console.log("Shipment email error:", err.message);
+  }
+};
+
+const createShipmentForPaidOrder = async (order) => {
+  try {
+    const payload = {
+      senderCity: "Asaba",
+      senderTownID: Number(process.env.REDSTAR_SENDER_TOWN_ID),
+      senderName: "CHEEPCART",
+      senderPhone: "08000000000",
+      senderAddress: process.env.SENDER_ADDRESS,
+      recipientCity: "Asaba",
+      recipientTownID: Number(order.shippingAddress.redstarTownId),
+      recipientName: order.shippingAddress.fullName,
+      recipientPhoneNo: order.shippingAddress.phone,
+      recipientEmail: order.shippingAddress.email,
+      recipientAddress: order.shippingAddress.addressLine1,
+      recipientState: order.shippingAddress.state,
+      orderNo: order.orderNumber,
+      deliveryType: "Express Delivery",
+      description: "E-commerce order",
+      paymentType: "Prepaid",
+      pickupType: order.meta.pickupType,
+      weight: order.meta.totalWeight,
+      pieces: order.meta.totalItems,
+      cashOnDelivery: 0,
+      shipmentItems: [],
+    };
+
+    const shipmentResponse = await createRedstarShipment(payload);
+
+    if (shipmentResponse?.TransStatus !== "Successful") {
+      order.shipmentStatus = "failed";
+      await order.save();
+      return;
+    }
+
+    order.shipmentStatus = "created";
+    order.deliveryStatus = "pending";
+    order.orderStatus = "processing";
+    order.shipmentReference = shipmentResponse?.OrderNo || null;
+    order.trackingNumber =
+      shipmentResponse?.WaybillNumber && shipmentResponse?.WaybillNumber !== "N/A"
+        ? shipmentResponse.WaybillNumber
+        : null;
+    order.shipmentCreatedAt = new Date();
+
+    await order.save();
+    await sendShipmentEmailSafely(order);
+  } catch (shipmentError) {
+    console.log("Shipment creation error:", shipmentError.message);
+    order.shipmentStatus = "failed";
+    await order.save();
+  }
+};
+
+const finalizeSuccessfulPayment = async ({ order, paymentData, reference, user }) => {
+  if (order.paymentStatus === "paid") {
+    return { alreadyProcessed: true, order };
+  }
+
+  if (paymentData.status !== "success") {
+    order.paymentStatus = "failed";
+    await order.save();
+    throw new Error("Payment was not successful");
+  }
+
+  const paidAmount = Number(paymentData.amount) / 100;
+
+  if (paidAmount !== Number(order.pricing.totalAmount)) {
+    throw new Error("Paid amount does not match order total");
+  }
+
+  for (const item of order.items) {
+    const product = await Product.findById(item.productId);
+
+    if (!product || !product.isActive) {
+      throw new Error(`${item.name} is no longer available`);
+    }
+
+    if (product.stock < item.quantity) {
+      throw new Error(`Insufficient stock for ${item.name}`);
+    }
+  }
+
+  for (const item of order.items) {
+    const product = await Product.findById(item.productId);
+    product.stock -= item.quantity;
+    await product.save();
+  }
+
+  order.paymentStatus = "paid";
+  order.paymentReference = reference || paymentData.reference || order.paymentReference;
+  order.paidAt = paymentData.paid_at ? new Date(paymentData.paid_at) : new Date();
+  order.orderStatus = "confirmed";
+  await order.save();
+
+  await sendPaymentEmailSafely(order, user);
+
+  await Cart.findOneAndUpdate(
+    { user: order.user },
+    { items: [], totalItems: 0, totalPrice: 0 }
+  );
+
+  await createShipmentForPaidOrder(order);
+
+  return { alreadyProcessed: false, order };
+};
+
 
 
 // ========================== INITIALIZE ORDER PAYMENT ==========================
@@ -138,7 +297,7 @@ export const initializeOrderPayment = async (req, res, next) => {
       email: order.customerEmail,
       amount: Math.round(Number(order.pricing.totalAmount) * 100),
       reference,
-      callbackUrl: process.env.PAYSTACK_CALLBACK_URL,
+      callbackUrl: getPaymentCallbackUrl(),
       metadata: {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
@@ -383,6 +542,119 @@ export const verifyOrderPayment = async (req, res, next) => {
             },
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========================== PUBLIC PAYMENT SYNC ==========================
+export const syncOrderPayment = async (req, res, next) => {
+  try {
+    const { reference } = req.params;
+
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment reference is required",
+      });
+    }
+
+    const paystackResponse = await verifyPaystackPayment(reference);
+    const paymentData = paystackResponse?.data;
+
+    if (!paymentData) {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to verify payment",
+      });
+    }
+
+    const order = await findOrderForPayment(paymentData);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const result = await finalizeSuccessfulPayment({
+      order,
+      paymentData,
+      reference,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.alreadyProcessed
+        ? "Order payment already synced"
+        : "Payment synced successfully",
+      order: result.order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========================== PAYSTACK CALLBACK ==========================
+export const handlePaystackCallback = async (req, res, next) => {
+  try {
+    const reference = req.query.reference || req.query.trxref;
+    const frontendUrl = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
+
+    if (!reference) {
+      if (frontendUrl) return res.redirect(`${frontendUrl}/dashboard?payment=missing-reference`);
+
+      return res.status(400).json({
+        success: false,
+        message: "Payment reference is required",
+      });
+    }
+
+    const paystackResponse = await verifyPaystackPayment(reference);
+    const paymentData = paystackResponse?.data;
+
+    if (!paymentData) {
+      if (frontendUrl) return res.redirect(`${frontendUrl}/dashboard?payment=verification-failed`);
+
+      return res.status(400).json({
+        success: false,
+        message: "Unable to verify payment",
+      });
+    }
+
+    const order = await findOrderForPayment(paymentData);
+
+    if (!order) {
+      if (frontendUrl) {
+        return res.redirect(
+          `${frontendUrl}/dashboard?payment=order-not-found&reference=${encodeURIComponent(reference)}`
+        );
+      }
+
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    await finalizeSuccessfulPayment({
+      order,
+      paymentData,
+      reference,
+    });
+
+    if (frontendUrl) {
+      return res.redirect(
+        `${frontendUrl}/dashboard?payment=success&reference=${encodeURIComponent(reference)}&orderId=${order._id}`
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment callback processed successfully",
+      order,
+    });
   } catch (error) {
     next(error);
   }

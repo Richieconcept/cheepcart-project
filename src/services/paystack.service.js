@@ -1,13 +1,24 @@
 import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
 const paystackClient = axios.create({
   baseURL: PAYSTACK_BASE_URL,
   headers: {
-    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
     "Content-Type": "application/json",
   },
+});
+
+paystackClient.interceptors.request.use((config) => {
+  if (!process.env.PAYSTACK_SECRET_KEY) {
+    throw new Error("PAYSTACK_SECRET_KEY is not configured");
+  }
+
+  config.headers.Authorization = `Bearer ${process.env.PAYSTACK_SECRET_KEY}`;
+  return config;
 });
 
 const cleanQuery = (query = {}) =>
