@@ -184,7 +184,7 @@ export const paymentSuccessTemplate = (name, order) => {
       <div style="padding:20px;">
         <p>Hi <strong>${name}</strong>,</p>
 
-        <p>Your payment was successful. Your order is now being processed.</p>
+        <p>Your payment was successful. Your order is now being processed. We attached your PDF receipt to this email.</p>
 
         <!-- ITEMS -->
         <table width="100%">
