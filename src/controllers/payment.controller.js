@@ -103,7 +103,12 @@ const getPaymentCallbackUrl = () => {
   if (process.env.PAYSTACK_CALLBACK_URL) return process.env.PAYSTACK_CALLBACK_URL;
   if (!process.env.FRONTEND_URL) return undefined;
 
-  return `${process.env.FRONTEND_URL.replace(/\/$/, "")}/dashboard`;
+  return `${process.env.FRONTEND_URL.replace(/\/$/, "")}/dashboard/orders`;
+};
+
+const getFrontendOrdersUrl = () => {
+  const frontendUrl = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
+  return frontendUrl ? `${frontendUrl}/dashboard/orders` : "";
 };
 
 const getOrderIdFromPaymentData = (paymentData) =>
@@ -600,10 +605,10 @@ export const syncOrderPayment = async (req, res, next) => {
 export const handlePaystackCallback = async (req, res, next) => {
   try {
     const reference = req.query.reference || req.query.trxref;
-    const frontendUrl = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
+    const ordersUrl = getFrontendOrdersUrl();
 
     if (!reference) {
-      if (frontendUrl) return res.redirect(`${frontendUrl}/dashboard?payment=missing-reference`);
+      if (ordersUrl) return res.redirect(`${ordersUrl}?payment=missing-reference`);
 
       return res.status(400).json({
         success: false,
@@ -615,7 +620,7 @@ export const handlePaystackCallback = async (req, res, next) => {
     const paymentData = paystackResponse?.data;
 
     if (!paymentData) {
-      if (frontendUrl) return res.redirect(`${frontendUrl}/dashboard?payment=verification-failed`);
+      if (ordersUrl) return res.redirect(`${ordersUrl}?payment=verification-failed`);
 
       return res.status(400).json({
         success: false,
@@ -626,9 +631,9 @@ export const handlePaystackCallback = async (req, res, next) => {
     const order = await findOrderForPayment(paymentData);
 
     if (!order) {
-      if (frontendUrl) {
+      if (ordersUrl) {
         return res.redirect(
-          `${frontendUrl}/dashboard?payment=order-not-found&reference=${encodeURIComponent(reference)}`
+          `${ordersUrl}?payment=order-not-found&reference=${encodeURIComponent(reference)}`
         );
       }
 
@@ -644,9 +649,9 @@ export const handlePaystackCallback = async (req, res, next) => {
       reference,
     });
 
-    if (frontendUrl) {
+    if (ordersUrl) {
       return res.redirect(
-        `${frontendUrl}/dashboard?payment=success&reference=${encodeURIComponent(reference)}&orderId=${order._id}`
+        `${ordersUrl}?payment=success&reference=${encodeURIComponent(reference)}&orderId=${order._id}`
       );
     }
 
